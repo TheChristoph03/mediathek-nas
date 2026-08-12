@@ -37,9 +37,9 @@ Bibliothek füllt.
 
 ## Voraussetzungen
 
-- Ein NAS oder Docker-Host mit **x86_64**-Prozessor. Die veröffentlichten Images
-  sind vorerst nur `linux/amd64` — auf einer ARM-Synology läuft der Pull durch
-  und der Container startet nicht. Dort selbst bauen oder auf arm64 warten.
+- Ein NAS oder Docker-Host mit **x86_64**- oder **ARM64**-Prozessor. Es werden
+  Images für beide veröffentlicht; Container Manager wählt automatisch das
+  passende.
 - Synology DSM 7 mit installiertem **Container Manager**, oder ein beliebiger
   Docker-Host mit Compose v2.
 - Ein freigegebener Ordner für die Medien und einer für die App-Konfiguration.
@@ -48,8 +48,7 @@ Bibliothek füllt.
 
 ## Schnellstart
 
-Etwa zehn Minuten. SSH brauchst du genau einmal, um eine numerische Benutzer-ID
-auszulesen — alles Weitere geht in der DSM-Oberfläche.
+Etwa zehn Minuten, komplett in der DSM-Oberfläche.
 
 ### 1. Config-Ordner anlegen
 
@@ -64,15 +63,18 @@ fehlenden Ordner verhindert den Start.
 
 ### 2. UID und GID des Medienordners ermitteln
 
-In DSM SSH aktivieren unter **Systemsteuerung → Terminal & SNMP**, verbinden, dann:
+App einmal mit den Vorgaben unten starten, **Einstellungen → System-Check**
+öffnen — dort steht die Zeile, die du brauchst, inklusive Hinweis, wem der
+Medienordner gehört, falls das ein anderes Konto ist. Kein SSH nötig.
+
+Wer es gleich beim ersten Mal richtig haben will, per SSH:
 
 ```bash
 stat -c '%u:%g' "/volume1/video/Movies/DeinMedienordner"
 ```
 
-Das ergibt etwa `1026:100`. Unter diesem Konto soll der Container laufen, damit
-die heruntergeladenen Dateien dir gehören und nicht root. Notieren; SSH kannst du
-danach wieder abschalten.
+So oder so kommt etwas wie `1026:100` heraus. Unter diesem Konto soll der
+Container laufen, damit die Dateien dir gehören und nicht root.
 
 ### 3. Compose-Datei schreiben
 
@@ -247,7 +249,6 @@ nativer MediathekView-Datenformate.
 
 ## Geplant
 
-- `linux/arm64`-Images für ARM-basierte Synology-Modelle
 - Tests in der CI, bevor ein Image veröffentlicht wird
 - Der Datumsfilter greift derzeit lokal nach dem Paging, dadurch kann eine
   gefilterte Seite kürzer sein und die Gesamtzahl bleibt ungefiltert

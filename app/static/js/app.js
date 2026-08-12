@@ -921,8 +921,13 @@ function renderSystemCheck(payload) {
   const summary = payload.summary || {};
   const row = (item) =>
     `<div class="check-row"><span class="check-dot ${escapeAttribute(item.status || "manual")}"></span><span>${escapeHtml(item.label)}</span></div>`;
+  const identity =
+    summary.uid !== undefined
+      ? `<p class="identity-line">user: "${summary.uid}:${summary.gid}"</p>`
+      : "";
   systemCheckPanel.innerHTML = `
     <p class="checks-head">${escapeHtml(t("sys.containerChecks"))} — ${summary.ok_count || 0}/${summary.total_checks || 0} · ${escapeHtml(summary.architecture || "")}</p>
+    ${identity}
     ${(payload.checks || []).map(row).join("")}
     <p class="checks-head">${escapeHtml(t("sys.manualChecks"))}</p>
     ${(payload.host_prerequisites || []).map(row).join("")}

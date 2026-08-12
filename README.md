@@ -34,9 +34,8 @@ Roughly: MediathekView is the desktop client, this is the always-on library fill
 
 ## Requirements
 
-- A NAS or Docker host with an **x86_64** CPU. Published images are `linux/amd64`
-  only for now — on an ARM-based Synology the pull succeeds and the container
-  fails to start. Build from source there, or wait for arm64 images.
+- A NAS or Docker host with an **x86_64** or **ARM64** CPU. Images are published
+  for both; Container Manager picks the right one automatically.
 - Synology DSM 7 with **Container Manager** installed, or any Docker host with
   Compose v2.
 - A shared folder for your media, and one for the app's config.
@@ -45,8 +44,7 @@ Roughly: MediathekView is the desktop client, this is the always-on library fill
 
 ## Quick start
 
-Roughly ten minutes. You need SSH once, to read a numeric user ID — everything
-else happens in the DSM interface.
+Roughly ten minutes, entirely in the DSM interface.
 
 ### 1. Create the config folder
 
@@ -61,15 +59,18 @@ missing folder makes the container refuse to start.
 
 ### 2. Find the UID and GID that own your media
 
-In DSM, enable SSH under **Control Panel → Terminal & SNMP**, connect, and run:
+Start the app once with the defaults below, open **Settings → System check**, and
+it tells you the line to use — including which account owns the media folder if
+that differs from the one it is running as. No SSH needed.
+
+If you prefer to get it right the first time, over SSH:
 
 ```bash
 stat -c '%u:%g' "/volume1/video/Movies/YourMediaFolder"
 ```
 
-You get something like `1026:100`. That is the account the container should run
-as, so downloaded files belong to you rather than to root. Note it down; you can
-switch SSH off again afterwards.
+Either way you end up with something like `1026:100`. That is the account the
+container should run as, so downloaded files belong to you rather than to root.
 
 ### 3. Write the compose file
 
@@ -256,7 +257,6 @@ MediathekView data formats.
 
 ## Roadmap
 
-- `linux/arm64` images for ARM-based Synology models
 - Tests running in CI before an image is published
 - Date filtering currently happens locally after paging, so a filtered page can
   be short and the total stays unfiltered
