@@ -15,6 +15,10 @@ ein Container, kein Java, kein Desktop-Client.
 > der öffentlichen API, die sie dankenswerterweise bereitstellen. Wer das hier nutzt,
 > sollte deren Repositories einen Stern geben.
 
+![Suchergebnisse, zwei Downloads laufen](docs/screenshots/search-results.png)
+
+![Die Warteschlange](docs/screenshots/downloads-queue.png)
+
 ## Warum es das gibt
 
 MediathekView ist hervorragend, und wer eine Desktop-Anwendung möchte, sollte sie
@@ -123,6 +127,8 @@ Infuse-Deep-Links sowie ein Import für bereits vorhandene Dateien.
 
 **Diagnose** — `GET /api/system-check` prüft `yt-dlp`, `ffmpeg` und ob Config- und
 Download-Pfad aus dem Container heraus beschreibbar sind.
+
+![Einstellungen](docs/screenshots/settings.png)
 
 ## Aus dem Quellcode bauen
 

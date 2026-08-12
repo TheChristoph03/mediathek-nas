@@ -13,6 +13,10 @@ one container, no Java, no desktop client.
 > affiliated with them — it is a NAS-shaped front end built on top of the public API
 > they generously provide. If you use this, go star their repositories.
 
+![Search results, with two downloads running](docs/screenshots/search-results.png)
+
+![The download queue](docs/screenshots/downloads-queue.png)
+
 ## Why this exists
 
 MediathekView is excellent, and if you want a desktop application you should use it
@@ -128,6 +132,8 @@ hooks, Infuse deep links, and an importer for media you already have on disk.
 
 **Diagnostics** — `GET /api/system-check` verifies `yt-dlp`, `ffmpeg`, and that the
 config and download paths are writable from inside the container.
+
+![Settings](docs/screenshots/settings.png)
 
 ## Building from source
 
