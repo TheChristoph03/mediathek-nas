@@ -1,0 +1,22 @@
+services:
+  mediathek-nas:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mediathek-nas
+    user: "1026:100"
+    ports:
+      - "8000:8000"
+    environment:
+      APP_DATA_DIR: /config
+      DOWNLOAD_ROOT: /media/fernseh-mediathek
+      HOME: /config
+      TZ: Europe/Berlin
+    volumes:
+      - type: bind
+        source: /volume1/docker/mediathek-nas/config
+        target: /config
+      - type: bind
+        source: /volume1/video/Movies/Fernseh Mediathek
+        target: /media/fernseh-mediathek
+    restart: unless-stopped
