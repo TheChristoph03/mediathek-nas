@@ -328,19 +328,24 @@ async function refreshChannels() {
 /* ── Broadcaster colours ────────────────────────────────── */
 
 const CHANNEL_COLORS = {
-  ard: "#003c8f", "das erste": "#003c8f", zdf: "#fa7d19", "zdf-tivi": "#e5007d",
+  ard: "#003c8f", "das erste": "#003c8f", "ard-alpha": "#7b2b8f", one: "#e2001a",
+  tagesschau24: "#003c8f",
+  zdf: "#fa7d19", "zdf-tivi": "#e5007d",
   zdfneo: "#8f1a5e", zdfinfo: "#0a5aa0", arte: "#ff4b00", "3sat": "#e5006d",
   kika: "#e5007d", phoenix: "#a50034", br: "#0b7ec8", hr: "#00457c",
   mdr: "#007dc5", ndr: "#0c2c57", rbb: "#004b93", sr: "#c8102e",
   swr: "#00a5dc", wdr: "#00519e", "dw": "#0f4c81", orf: "#c8102e",
-  srf: "#e30613", funk: "#00d8a0",
+  srf: "#e30613", funk: "#00d8a0", "radio bremen tv": "#009ee0",
 };
 
 function channelColor(name) {
   if (!name) return "#767c85";
   const key = String(name).trim().toLowerCase();
   if (CHANNEL_COLORS[key]) return CHANNEL_COLORS[key];
-  const base = Object.keys(CHANNEL_COLORS).find((k) => key.startsWith(k));
+  // Longest prefix first, so "ard-alpha" is not swallowed by "ard".
+  const base = Object.keys(CHANNEL_COLORS)
+    .filter((k) => key.startsWith(k))
+    .sort((a, b) => b.length - a.length)[0];
   if (base) return CHANNEL_COLORS[base];
   let hash = 0;
   for (let i = 0; i < key.length; i += 1) hash = (hash * 31 + key.charCodeAt(i)) % 360;

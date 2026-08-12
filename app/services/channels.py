@@ -10,8 +10,9 @@ from app.core.config import settings
 from app.db.database import database
 
 
-# Used until the first successful refresh, and whenever a refresh comes back
-# implausible. Not authoritative -- the live list wins as soon as we have one.
+# The curated floor. These stay in the list permanently: sampling recent entries
+# finds busy channels reliably, but a low-volume one like ZDF-tivi or KiKA can be
+# absent from several hundred recent items and would silently disappear.
 FALLBACK_CHANNELS: list[str] = [
     "3Sat", "ARD", "ARTE.DE", "ARTE.EN", "ARTE.ES", "ARTE.FR", "ARTE.IT", "ARTE.PL",
     "BR", "DW", "Funk.net", "HR", "KiKA", "MDR", "NDR", "ORF", "PHOENIX",
@@ -30,13 +31,15 @@ class ChannelService:
 
     MAX_AGE = timedelta(hours=24)
     RETENTION = timedelta(days=30)
-    SAMPLE_SIZE = 300
+    SAMPLE_SIZE = 1000
     MIN_PLAUSIBLE = 5
 
     def list_channels(self) -> list[str]:
-        rows = database.fetch_all("SELECT name FROM channels ORDER BY name COLLATE NOCASE")
-        names = [row["name"] for row in rows if row["name"]]
-        return names or sorted(FALLBACK_CHANNELS)
+        """The curated floor plus everything seen upstream recently."""
+        rows = database.fetch_all("SELECT name FROM channels")
+        names = {row["name"] for row in rows if row["name"]}
+        names.update(FALLBACK_CHANNELS)
+        return sorted(names, key=str.casefold)
 
     def last_refresh(self) -> datetime | None:
         row = database.fetch_one("SELECT MAX(last_seen) AS newest FROM channels")
