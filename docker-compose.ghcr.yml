@@ -1,24 +1,36 @@
 # Mediathek NAS -- Synology deployment using the prebuilt image from GHCR.
 #
-# No local build. Copy this file to a folder on your NAS (for example
-# /volume1/docker/mediathek-nas/app), adjust the two `source:` paths and the
-# `user:` line below, then create a project in Container Manager pointing at
-# that folder. Skip the "Web Portal" step in the wizard.
+# No local build required.
+#
+#  1. Create the config folder first, e.g. /volume1/docker/mediathek-nas/config.
+#     A bind mount pointing at a missing folder stops the container from starting.
+#  2. Save this file as docker-compose.yml in a folder next to it, for example
+#     /volume1/docker/mediathek-nas/app. The name matters: Container Manager
+#     looks for exactly docker-compose.yml.
+#  3. Adjust the two `source:` paths and the `user:` line below.
+#  4. Container Manager -> Project -> Create, point it at that folder, and skip
+#     the "Web Portal" step in the wizard.
 #
 # Update later with:  docker compose pull && docker compose up -d
+# or in Container Manager: Project -> Action -> Build
 
 services:
   mediathek-nas:
     image: ghcr.io/thechristoph03/mediathek-nas:latest
     container_name: mediathek-nas
 
-    # UID:GID that should own the downloaded files. Find yours on the NAS with:
-    #   stat -c '%u:%g' /volume1/video/YourMediaFolder
-    # Without this the container runs as root and every download is root-owned,
-    # which Plex, Jellyfin and File Station all handle badly.
+    # UID:GID that should own the downloaded files. Without this the container
+    # runs as root and every download is root-owned, which Plex, Jellyfin and
+    # File Station all handle badly.
+    #
+    # Don't know yours? Start with this value, then open Settings -> System check
+    # in the app: it reports the UID it runs as and who owns the media folder.
+    # Over SSH it is:  stat -c '%u:%g' /volume1/video/YourMediaFolder
     user: "1026:100"
 
     ports:
+      # Change the LEFT side if 8000 is taken, e.g. "8123:8000".
+      # The right side is the port inside the container and stays 8000.
       - "8000:8000"
 
     environment:
@@ -29,13 +41,15 @@ services:
 
     volumes:
       # Application config and SQLite database. Must be writable by the UID above.
+      # Include this folder in your backups -- it holds all your settings and rules.
       - type: bind
         source: /volume1/docker/mediathek-nas/config
         target: /config
 
-      # Where downloads are stored. Change the source to your own media folder.
+      # Your media folder. Paths starting /volume2 are equally valid -- check
+      # where the shared folder actually lives in File Station.
       - type: bind
-        source: /volume1/video/Movies/Fernseh Mediathek
+        source: /volume1/video/Movies/YourMediaFolder
         target: /media/mediathek
 
     restart: unless-stopped
