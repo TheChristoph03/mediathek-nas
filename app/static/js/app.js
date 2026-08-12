@@ -472,13 +472,15 @@ async function runSearch(offset) {
 }
 
 function updatePager() {
-  const from = currentResults.length ? pageOffset + 1 : 0;
-  const to = pageOffset + currentResults.length;
+  // Derive the range from the page window, not from how many rows came back:
+  // date filtering happens after paging and can shorten a page.
+  const from = currentTotal ? pageOffset + 1 : 0;
+  const to = Math.min(pageOffset + pageSize, currentTotal);
   searchStatus.textContent = t("search.hits", { from, to, total: currentTotal });
   pageRange.textContent = searchStatus.textContent;
 
   const atStart = pageOffset === 0;
-  const atEnd = to >= currentTotal;
+  const atEnd = pageOffset + pageSize >= currentTotal;
   pagePrevButtons.forEach((btn) => (btn.disabled = atStart));
   pageNextButtons.forEach((btn) => (btn.disabled = atEnd));
   pagerFoot.hidden = atStart && atEnd;

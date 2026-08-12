@@ -31,12 +31,29 @@ class MediathekService:
             response.raise_for_status()
             raw = response.json()
 
-        results = [self._transform_result(item, payload.quality) for item in raw.get("result", {}).get("results", [])]
+        raw_result = raw.get("result", {}) or {}
+        query_info = raw_result.get("queryInfo", {}) or {}
+
+        items = raw_result.get("results", []) or []
+        results = [self._transform_result(item, payload.quality) for item in items]
         results = self._apply_date_filters(results, payload.start_date, payload.end_date)
+
+        # totalResults is the size of the whole result set; resultCount is only
+        # this page. Reporting the latter as the total made paging think every
+        # search fit on one page.
+        total = int(query_info.get("totalResults") or 0)
+
+        # MediathekViewWeb has no date range in its query API, so date filtering
+        # happens here, after paging. That means a filtered page can be shorter
+        # than requested and the total stays the unfiltered one.
+        date_filtered = len(results) != len(items)
+
         return {
-            "total": len(results),
+            "total": total,
             "offset": payload.offset,
             "size": payload.size,
+            "page_count": len(results),
+            "date_filtered": date_filtered,
             "results": results,
         }
 
