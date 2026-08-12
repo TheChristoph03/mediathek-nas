@@ -35,7 +35,7 @@ if [ "${YTDLP_AUTO_UPDATE:-1}" = "1" ]; then
   if ! needs_update; then
     echo "[entrypoint] cached yt-dlp is recent, skipping update ($("$UPDATE_BIN" --version 2>/dev/null || echo unknown))"
   elif mkdir -p "$UPDATE_DIR" 2>/dev/null; then
-    if curl -fsSL --max-time 90 \
+    if curl -fsSL --max-time 90 --retry 3 --retry-all-errors --retry-delay 2 \
         https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
         -o "$UPDATE_BIN.new" 2>/dev/null; then
       chmod +x "$UPDATE_BIN.new" 2>/dev/null || true

@@ -7,14 +7,19 @@ ARG YTDLP_VERSION=2026.07.04
 
 # NOTE: the heavy apt layer comes first on purpose. ENV lines below it can be
 # changed without invalidating the ffmpeg install, which takes ~25 minutes on a NAS.
+# curl retries because a single dropped connection to GitHub would otherwise fail
+# the whole build -- exit 56 on a CI runner cost one run already.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl \
     && if [ "$YTDLP_VERSION" = "latest" ]; then \
-         curl -fsSL https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/local/bin/yt-dlp; \
+         YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp"; \
        else \
-         curl -fsSL "https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}/yt-dlp" -o /usr/local/bin/yt-dlp; \
+         YTDLP_URL="https://github.com/yt-dlp/yt-dlp/releases/download/${YTDLP_VERSION}/yt-dlp"; \
        fi \
+    && curl -fsSL --retry 5 --retry-all-errors --retry-delay 3 --connect-timeout 20 \
+         "$YTDLP_URL" -o /usr/local/bin/yt-dlp \
     && chmod +x /usr/local/bin/yt-dlp \
+    && /usr/local/bin/yt-dlp --version \
     && rm -rf /var/lib/apt/lists/*
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
