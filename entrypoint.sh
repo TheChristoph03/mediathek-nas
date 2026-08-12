@@ -15,9 +15,26 @@ set -e
 
 UPDATE_DIR="${APP_DATA_DIR:-/config}/bin"
 UPDATE_BIN="$UPDATE_DIR/yt-dlp"
+MAX_AGE_MINUTES="${YTDLP_UPDATE_INTERVAL_MINUTES:-1440}"
+
+# Skip the 3 MB download when the cached binary is younger than the interval.
+# Restarting the container ten times a day should not mean ten downloads.
+# Written with plain if-blocks on purpose: under `set -e`, a `[ ... ] && return`
+# whose test fails would abort the whole script.
+needs_update() {
+  if [ ! -f "$UPDATE_BIN" ]; then
+    return 0
+  fi
+  if [ -n "$(find "$UPDATE_BIN" -mmin "+$MAX_AGE_MINUTES" 2>/dev/null)" ]; then
+    return 0
+  fi
+  return 1
+}
 
 if [ "${YTDLP_AUTO_UPDATE:-1}" = "1" ]; then
-  if mkdir -p "$UPDATE_DIR" 2>/dev/null; then
+  if ! needs_update; then
+    echo "[entrypoint] cached yt-dlp is recent, skipping update ($("$UPDATE_BIN" --version 2>/dev/null || echo unknown))"
+  elif mkdir -p "$UPDATE_DIR" 2>/dev/null; then
     if curl -fsSL --max-time 90 \
         https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp \
         -o "$UPDATE_BIN.new" 2>/dev/null; then

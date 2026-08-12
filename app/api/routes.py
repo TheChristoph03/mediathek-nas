@@ -10,6 +10,7 @@ from app.models.schemas import (
     SearchRequest,
     SettingsUpdateRequest,
 )
+from app.services.channels import channel_service
 from app.services.downloads import download_manager
 from app.services.imports import import_service
 from app.services.mediathek import mediathek_service
@@ -167,6 +168,19 @@ async def run_all_rules(payload: RuleRunRequest) -> dict:
 @api_router.post("/rules/run-due")
 async def run_due_rules(payload: RuleRunRequest) -> dict:
     return await scheduler.run_due_rules()
+
+
+@api_router.get("/channels")
+async def list_channels(refresh: bool = False) -> dict:
+    """Broadcasters currently present in the index.
+
+    Refreshed lazily: the first request after 24 hours pays for one upstream
+    call, everything else is served from the local cache.
+    """
+    if refresh or channel_service.is_stale():
+        result = await channel_service.refresh()
+        return {"items": result["channels"], "refreshed": result["refreshed"], "reason": result.get("reason")}
+    return {"items": channel_service.list_channels(), "refreshed": False}
 
 
 @api_router.get("/system-check")

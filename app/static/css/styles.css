@@ -521,7 +521,8 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .row-act:hover:not(:disabled) { color: var(--action); background: var(--surface); }
 .row-act:disabled { opacity: 0.22; cursor: default; }
 .row-act:focus-visible { outline: 2px solid var(--action); outline-offset: -2px; }
-.row-act.is-done { color: var(--ok); }
+/* Queued rows keep full contrast: the tick is information, not a dead control. */
+.row-act.is-done, .row-act.is-done:disabled { color: var(--ok); opacity: 1; }
 
 .empty {
   padding: 26px var(--pad);

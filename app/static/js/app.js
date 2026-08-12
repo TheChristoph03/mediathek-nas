@@ -31,6 +31,7 @@ const STRINGS = {
     "field.rootDefault": "Vorgabe aus dem Container",
     "field.rootReset": "auf {path} zurücksetzen",
     "queue.delete": "Aus der Liste entfernen? Die Datei auf der Platte bleibt.",
+    "queue.added": "In der Warteschlange",
     "field.parallel": "Gleichzeitig",
     "field.retries": "Auto-Retrys",
     "field.filename": "Dateiname",
@@ -151,6 +152,7 @@ const STRINGS = {
     "field.rootDefault": "Container default",
     "field.rootReset": "reset to {path}",
     "queue.delete": "Remove from the list? The file on disk is kept.",
+    "queue.added": "Queued",
     "field.parallel": "Concurrent",
     "field.retries": "Auto retries",
     "field.filename": "Filename",
@@ -279,8 +281,8 @@ function applyLanguage() {
 
 /* ── Channels ───────────────────────────────────────────── */
 
-// The channels MediathekViewWeb indexes. Typing a name that does not exist
-// silently returns nothing, so the field offers the real list instead.
+// Fallback only. The real list comes from GET /api/channels, which samples the
+// most recent entries upstream so vanished channels age out on their own.
 const KNOWN_CHANNELS = [
   "3Sat", "ARD", "ARTE.DE", "ARTE.EN", "ARTE.ES", "ARTE.FR", "ARTE.IT", "ARTE.PL",
   "BR", "DW", "Funk.net", "HR", "KiKA", "MDR", "NDR", "ORF", "PHOENIX",
@@ -307,6 +309,20 @@ function learnChannels(items) {
     }
   });
   if (added) renderChannelList();
+}
+
+async function refreshChannels() {
+  try {
+    const response = await fetchJson("/api/channels");
+    const items = response.items || [];
+    if (items.length >= 5) {
+      seenChannels.clear();
+      items.forEach((name) => seenChannels.add(name));
+      renderChannelList();
+    }
+  } catch (error) {
+    // The bundled fallback list stays in place; not worth bothering anyone about.
+  }
 }
 
 /* ── Broadcaster colours ────────────────────────────────── */
@@ -518,7 +534,11 @@ function renderResults(results) {
     act.addEventListener("click", async () => {
       act.disabled = true;
       await queueDownload(item);
+      // A greyed-out arrow reads as "broken". A tick reads as "it is queued".
       act.classList.add("is-done");
+      act.innerHTML =
+        '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 13l4 4L19 7" /></svg>';
+      act.title = t("queue.added");
     });
     resultsList.appendChild(node);
   });
@@ -1028,6 +1048,7 @@ async function fetchJson(url, options = {}) {
 
 applyLanguage();
 renderChannelList();
+refreshChannels();
 refreshSettings();
 refreshDownloads();
 refreshRules();
