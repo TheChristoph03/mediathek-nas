@@ -1,0 +1,15 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Question or setup help
+    url: https://github.com/TheChristoph03/mediathek-nas/discussions
+    about: For anything that is not a bug — setup, paths, permissions, ideas.
+  - name: Search index problems
+    url: https://github.com/mediathekview/mediathekviewweb/issues
+    about: >
+      Missing shows or wrong metadata come from MediathekViewWeb, which this app
+      only queries. Report those upstream.
+  - name: Download engine problems
+    url: https://github.com/yt-dlp/yt-dlp/issues
+    about: >
+      If a specific broadcaster stops downloading everywhere, it is usually
+      yt-dlp catching up with a player change.

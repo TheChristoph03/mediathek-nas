@@ -31,6 +31,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app ./app
 COPY README.md .
+COPY entrypoint.sh /usr/local/bin/entrypoint.sh
+RUN chmod +x /usr/local/bin/entrypoint.sh
 
 # Created world-writable so the container can run as an arbitrary UID/GID
 # (docker-compose `user:`) and still write config and downloads.
@@ -38,4 +40,5 @@ RUN mkdir -p /config /downloads && chmod 777 /config /downloads
 
 EXPOSE 8000
 
+ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

@@ -71,13 +71,16 @@ async def create_download(payload: DownloadCreateRequest) -> dict:
 @api_router.get("/settings")
 async def get_settings() -> dict:
     data = download_manager.get_settings()
-    data["env_managed_keys"] = download_manager.locked_setting_keys()
+    data["container_defaults"] = download_manager.container_default_settings()
     return data
 
 
 @api_router.put("/settings")
 async def update_settings(payload: SettingsUpdateRequest) -> dict:
-    return await download_manager.update_settings(payload.model_dump(exclude_none=True))
+    try:
+        return await download_manager.update_settings(payload.model_dump(exclude_none=True))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
 
 @api_router.post("/downloads/{download_id}/retry")
@@ -94,6 +97,12 @@ async def cancel_download(download_id: int) -> dict:
     if not item:
         raise HTTPException(status_code=404, detail="Download not found.")
     return item
+
+
+@api_router.delete("/downloads/{download_id}", status_code=204)
+async def delete_download(download_id: int) -> None:
+    if not download_manager.delete_download(download_id):
+        raise HTTPException(status_code=404, detail="Download not found.")
 
 
 @api_router.get("/rules")

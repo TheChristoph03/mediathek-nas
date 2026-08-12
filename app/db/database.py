@@ -4,7 +4,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Iterator
 
-from app.core.config import DEFAULT_APP_SETTINGS, env_managed_settings, settings
+from app.core.config import DEFAULT_APP_SETTINGS, settings
 
 
 class Database:
@@ -138,19 +138,6 @@ class Database:
                     INSERT INTO settings(key, value)
                     VALUES (?, ?)
                     ON CONFLICT(key) DO NOTHING
-                    """,
-                    (key, value),
-                )
-
-            # Environment-managed settings win over stored values on every start.
-            # Without this, a value seeded once (possibly wrong) could never be
-            # corrected by redeploying with a fixed environment.
-            for key, value in env_managed_settings().items():
-                conn.execute(
-                    """
-                    INSERT INTO settings(key, value)
-                    VALUES (?, ?)
-                    ON CONFLICT(key) DO UPDATE SET value = excluded.value
                     """,
                     (key, value),
                 )

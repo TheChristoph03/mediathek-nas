@@ -1,0 +1,31 @@
+name: Feature request
+description: Suggest something the app should do
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please describe the problem before the solution. Knowing what you were
+        trying to do often leads somewhere better than the feature as imagined.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What are you trying to do
+      placeholder: |
+        I want a weekly show to land in a per-season folder so Jellyfin picks up
+        the episode order correctly.
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: How you imagine it working
+      description: Optional. A rough sketch is fine.
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: What you do instead today
+      description: Workarounds are useful — they show how much the gap costs.

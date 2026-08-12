@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import os
 from pathlib import Path
 from typing import Any
 
-from app.core.config import DEFAULT_APP_SETTINGS, env_managed_settings
+from app.core.config import DEFAULT_APP_SETTINGS, env_defaults
 from app.db.database import database
 
 
@@ -23,8 +24,12 @@ class AppSettingsService:
     PATH_KEYS = {"download_root"}
 
     def locked_keys(self) -> list[str]:
-        """Settings pinned by the environment. These are read-only in the UI."""
-        return sorted(env_managed_settings().keys())
+        """Kept for API compatibility. Nothing is locked any more."""
+        return []
+
+    def container_defaults(self) -> dict[str, str]:
+        """Values the container environment suggests, offered as a reset target."""
+        return env_defaults()
 
     def get_all(self) -> dict[str, Any]:
         items = database.fetch_all("SELECT key, value FROM settings")
@@ -34,20 +39,15 @@ class AppSettingsService:
     def update(self, payload: dict[str, Any]) -> dict[str, Any]:
         updates: list[tuple[Any, ...]] = []
         current = self.get_all()
-        locked = set(self.locked_keys())
         for key, value in payload.items():
             if value is None or key not in DEFAULT_APP_SETTINGS:
-                continue
-            if key in locked:
-                # Pinned by the environment; silently ignore so the UI cannot
-                # write a value that would be overwritten on the next restart.
                 continue
             normalized = self._normalize_value(key, value)
             current[key] = self._coerce_value(key, normalized)
             updates.append((key, normalized))
 
         if "download_root" in payload and current["download_root"]:
-            Path(current["download_root"]).mkdir(parents=True, exist_ok=True)
+            self._require_writable_directory(Path(str(current["download_root"])))
 
         if updates:
             database.execute_many(
@@ -59,6 +59,28 @@ class AppSettingsService:
                 updates,
             )
         return self.get_all()
+
+    def _require_writable_directory(self, path: Path) -> None:
+        """Fail loudly and specifically instead of storing a path we cannot use.
+
+        In a container the usable paths are the mounted ones, and a typo here
+        used to surface much later as an opaque download failure.
+        """
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except PermissionError as exc:
+            raise ValueError(
+                f"'{path}' kann nicht angelegt werden (keine Rechte). "
+                f"Im Container sind nur gemountete Pfade beschreibbar."
+            ) from exc
+        except OSError as exc:
+            raise ValueError(f"'{path}' kann nicht angelegt werden: {exc.strerror or exc}") from exc
+
+        if not os.access(path, os.W_OK):
+            raise ValueError(
+                f"'{path}' existiert, ist aber nicht beschreibbar. "
+                f"Pruefe die Rechte des gemounteten Verzeichnisses."
+            )
 
     def _normalize_value(self, key: str, value: Any) -> str:
         if key in self.BOOL_KEYS:

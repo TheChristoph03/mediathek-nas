@@ -83,15 +83,24 @@ will refuse to start with a `bind source path does not exist` error.
 
 | Variable | Default | Meaning |
 | --- | --- | --- |
-| `DOWNLOAD_ROOT` | `/downloads` | Where downloads are written, inside the container |
+| `DOWNLOAD_ROOT` | `/downloads` | Initial download location, changeable in the UI |
 | `APP_DATA_DIR` | `/config` | Holds `mediathek_nas.db` |
 | `HOME` | `/config` | Needed so `yt-dlp` has a writable cache directory |
+| `YTDLP_AUTO_UPDATE` | `1` | Fetch the current yt-dlp on start; `0` keeps the pinned one |
 | `TZ` | `Europe/Berlin` | Affects scheduler timing and log timestamps |
 
-`DOWNLOAD_ROOT` is **environment-managed**: whatever the container environment says wins
-over the stored value on every start, and the field is read-only in the UI. This is
-deliberate — in a container you configure the path with a volume mount, not by typing it
-into a form. Everything else is configured in the UI and persisted in the database.
+`DOWNLOAD_ROOT` seeds the value on a fresh install; after that the UI owns it.
+Saving a path that cannot be created or written to fails with an explicit error
+rather than being silently ignored.
+
+### Keeping yt-dlp current
+
+Broadcasters change their players regularly, and a yt-dlp release from months ago
+will eventually fail on some of them. The image ships a pinned version so builds
+stay reproducible, and the container fetches the current release into the config
+volume on start. If that download fails — no internet, GitHub unreachable — it
+falls back to the pinned binary and logs which one it is using. Set
+`YTDLP_AUTO_UPDATE=0` to always stay on the pinned version.
 
 ### Naming and folders
 
@@ -139,9 +148,15 @@ uvicorn app.main:app --reload
 python -m unittest discover -s tests
 ```
 
-`yt-dlp` is pinned in the Dockerfile for reproducible builds. Because broadcasters change
-their sites, a pinned version will eventually stop working for some sources — the pin gets
-bumped with each release.
+`yt-dlp` is pinned in the Dockerfile so builds are reproducible; the running
+container updates it on start unless you disable that.
+
+## Contributing
+
+Bug reports and pull requests are welcome — see
+[CONTRIBUTING.md](CONTRIBUTING.md) for how to run it locally and what the tests
+expect. Questions that are not bugs belong in
+[Discussions](https://github.com/TheChristoph03/mediathek-nas/discussions).
 
 ## Scope and limits
 

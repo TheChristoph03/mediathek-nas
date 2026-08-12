@@ -6,18 +6,19 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 
 
-# Settings that may be pinned via environment variable (typically by docker-compose).
-# When the variable is set, it wins over any value stored in the database on every
-# start, and the UI renders the field read-only. Maps setting key -> env var name.
-ENV_MANAGED_KEYS: dict[str, str] = {
+# Settings whose default comes from an environment variable (typically set by
+# docker-compose). The environment provides the STARTING value on a fresh
+# install; the user stays free to change it in the UI afterwards. Changes are
+# validated on save, so a bad path fails loudly instead of silently.
+ENV_DEFAULT_KEYS: dict[str, str] = {
     "download_root": "DOWNLOAD_ROOT",
 }
 
 
-def env_managed_settings() -> dict[str, str]:
-    """Return only those env-managed settings that are actually set in the environment."""
+def env_defaults() -> dict[str, str]:
+    """Return the env-provided defaults that are actually set in the environment."""
     resolved: dict[str, str] = {}
-    for key, env_var in ENV_MANAGED_KEYS.items():
+    for key, env_var in ENV_DEFAULT_KEYS.items():
         raw = os.getenv(env_var)
         if raw and raw.strip():
             resolved[key] = raw.strip()

@@ -1,0 +1,44 @@
+version: 2
+
+# Monthly is the coarsest interval Dependabot supports. Weekly would produce
+# more pull requests than anyone reviews, and unreviewed dependency PRs are
+# worse than none -- they train you to merge without looking.
+#
+# Note: yt-dlp is NOT covered here. Its version lives in an ARG in the
+# Dockerfile, which Dependabot reads as an opaque string. The container updates
+# yt-dlp itself on start (see entrypoint.sh); the pin is only the fallback.
+
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Berlin
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: "deps"
+    labels:
+      - dependencies
+
+  - package-ecosystem: docker
+    directory: "/"
+    schedule:
+      interval: monthly
+      day: monday
+      time: "05:00"
+      timezone: Europe/Berlin
+    commit-message:
+      prefix: "deps(docker)"
+    labels:
+      - dependencies
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: monthly
+    commit-message:
+      prefix: "ci"
+    labels:
+      - dependencies

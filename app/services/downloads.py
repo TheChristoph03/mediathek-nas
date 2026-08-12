@@ -246,6 +246,9 @@ class DownloadManager:
     def locked_setting_keys(self) -> list[str]:
         return app_settings_service.locked_keys()
 
+    def container_default_settings(self) -> dict[str, str]:
+        return app_settings_service.container_defaults()
+
     def update_download_root(self, path: str) -> str:
         return str(app_settings_service.update({"download_root": path})["download_root"])
 
@@ -271,6 +274,16 @@ class DownloadManager:
         )
         self._enqueue(download_id)
         return self.get_download(download_id)
+
+    def delete_download(self, download_id: int) -> bool:
+        """Remove an entry from the queue and history. The media file stays."""
+        download = self.get_download(download_id)
+        if not download:
+            return False
+        self.enqueued_ids.discard(download_id)
+        database.execute("DELETE FROM rule_matches WHERE download_id = ?", (download_id,))
+        database.execute("DELETE FROM downloads WHERE id = ?", (download_id,))
+        return True
 
     async def cancel_download(self, download_id: int) -> dict[str, Any] | None:
         download = self.get_download(download_id)

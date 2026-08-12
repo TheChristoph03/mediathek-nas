@@ -62,7 +62,7 @@
               <div class="filter-grid">
                 <label>
                   <span data-i18n="field.channel">Sender</span>
-                  <input type="text" name="channel" placeholder="ARD, ZDF, ARTE" autocomplete="off" />
+                  <input type="text" name="channel" list="channelList" placeholder="ARD, ZDF, ARTE" autocomplete="off" />
                 </label>
                 <label>
                   <span data-i18n="field.topic">Thema</span>
@@ -99,11 +99,36 @@
 
           <div class="listbar">
             <span id="searchStatus" data-i18n="search.idle">Noch nichts gesucht</span>
-            <a id="searchRssLink" class="quiet-link" href="/api/rss/search" target="_blank" rel="noreferrer">RSS</a>
+            <div class="pager">
+              <select id="pageSize" aria-label="Treffer pro Seite">
+                <option value="10">10</option>
+                <option value="25" selected>25</option>
+                <option value="50">50</option>
+              </select>
+              <button type="button" class="pager-btn" id="pagePrev" disabled aria-label="Zurück">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
+              </button>
+              <button type="button" class="pager-btn" id="pageNext" disabled aria-label="Weiter">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+              </button>
+              <a id="searchRssLink" class="quiet-link" href="/api/rss/search" target="_blank" rel="noreferrer">RSS</a>
+            </div>
           </div>
 
           <div id="resultsList" class="rows">
             <p class="empty" data-i18n="results.empty">Suche etwas, um Treffer zu sehen.</p>
+          </div>
+
+          <div class="listbar listbar-foot" id="pagerFoot" hidden>
+            <span id="pageRange"></span>
+            <div class="pager">
+              <button type="button" class="pager-btn" id="pagePrevFoot" aria-label="Zurück">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5 8 12l7 7" /></svg>
+              </button>
+              <button type="button" class="pager-btn" id="pageNextFoot" aria-label="Weiter">
+                <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 5 7 7-7 7" /></svg>
+              </button>
+            </div>
           </div>
         </section>
 
@@ -144,7 +169,7 @@
               </label>
               <label>
                 <span data-i18n="field.channel">Sender</span>
-                <input type="text" name="channel" />
+                <input type="text" name="channel" list="channelList" autocomplete="off" />
               </label>
               <label>
                 <span data-i18n="field.topic">Thema</span>
@@ -198,8 +223,9 @@
               <label class="form-wide">
                 <span data-i18n="field.root">Download-Root</span>
                 <input type="text" name="download_root" value="{{ default_download_root }}" />
-                <small class="locked-note" id="rootLockedNote" hidden data-i18n="field.rootLocked">
-                  Wird vom Container vorgegeben und kann hier nicht geändert werden.
+                <small class="locked-note" id="rootLockedNote" hidden>
+                  <span data-i18n="field.rootDefault">Vorgabe aus dem Container</span>:
+                  <button type="button" class="linkish" id="rootResetButton"></button>
                 </small>
               </label>
               <label>
@@ -353,6 +379,8 @@
       <div class="sheet-body" id="detailPanel"></div>
     </aside>
 
+    <datalist id="channelList"></datalist>
+
     <template id="resultTemplate">
       <article class="row">
         <span class="row-bar"></span>
@@ -390,6 +418,9 @@
         </button>
         <button type="button" class="row-act dl-cancel" title="Abbrechen">
           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
+        <button type="button" class="row-act dl-delete" title="Aus der Liste entfernen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13M10 11v6M14 11v6" /></svg>
         </button>
       </article>
     </template>

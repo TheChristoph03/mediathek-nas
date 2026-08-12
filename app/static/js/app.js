@@ -15,7 +15,8 @@ const STRINGS = {
     "search.filters": "Filter",
     "search.idle": "Noch nichts gesucht",
     "search.running": "Suche läuft …",
-    "search.hits": "{n} von {total} Treffern",
+    "search.hits": "{from}–{to} von {total}",
+    "search.perPage": "pro Seite",
     "results.empty": "Suche etwas, um Treffer zu sehen.",
     "results.none": "Keine Treffer.",
     "field.channel": "Sender",
@@ -27,7 +28,9 @@ const STRINGS = {
     "field.maxMin": "Max. Minuten",
     "field.quality": "Qualität",
     "field.root": "Download-Root",
-    "field.rootLocked": "Wird vom Container vorgegeben und kann hier nicht geändert werden.",
+    "field.rootDefault": "Vorgabe aus dem Container",
+    "field.rootReset": "auf {path} zurücksetzen",
+    "queue.delete": "Aus der Liste entfernen? Die Datei auf der Platte bleibt.",
     "field.parallel": "Gleichzeitig",
     "field.retries": "Auto-Retrys",
     "field.filename": "Dateiname",
@@ -132,7 +135,8 @@ const STRINGS = {
     "search.filters": "Filters",
     "search.idle": "Nothing searched yet",
     "search.running": "Searching …",
-    "search.hits": "{n} of {total} results",
+    "search.hits": "{from}–{to} of {total}",
+    "search.perPage": "per page",
     "results.empty": "Search for something to see results.",
     "results.none": "No results.",
     "field.channel": "Channel",
@@ -144,7 +148,9 @@ const STRINGS = {
     "field.maxMin": "Max. minutes",
     "field.quality": "Quality",
     "field.root": "Download root",
-    "field.rootLocked": "Set by the container environment and not editable here.",
+    "field.rootDefault": "Container default",
+    "field.rootReset": "reset to {path}",
+    "queue.delete": "Remove from the list? The file on disk is kept.",
     "field.parallel": "Concurrent",
     "field.retries": "Auto retries",
     "field.filename": "Filename",
@@ -271,6 +277,38 @@ function applyLanguage() {
   if (activeDetail) showDetails(activeDetail);
 }
 
+/* ── Channels ───────────────────────────────────────────── */
+
+// The channels MediathekViewWeb indexes. Typing a name that does not exist
+// silently returns nothing, so the field offers the real list instead.
+const KNOWN_CHANNELS = [
+  "3Sat", "ARD", "ARTE.DE", "ARTE.EN", "ARTE.ES", "ARTE.FR", "ARTE.IT", "ARTE.PL",
+  "BR", "DW", "Funk.net", "HR", "KiKA", "MDR", "NDR", "ORF", "PHOENIX",
+  "Radio Bremen TV", "RBB", "RBTV", "SR", "SRF", "SWR", "WDR",
+  "ZDF", "ZDF-tivi", "ZDFinfo", "ZDFneo",
+];
+
+const channelListEl = document.getElementById("channelList");
+const seenChannels = new Set(KNOWN_CHANNELS);
+
+function renderChannelList() {
+  channelListEl.innerHTML = [...seenChannels]
+    .sort((a, b) => a.localeCompare(b, "de"))
+    .map((name) => `<option value="${escapeAttribute(name)}"></option>`)
+    .join("");
+}
+
+function learnChannels(items) {
+  let added = false;
+  items.forEach((item) => {
+    if (item.channel && !seenChannels.has(item.channel)) {
+      seenChannels.add(item.channel);
+      added = true;
+    }
+  });
+  if (added) renderChannelList();
+}
+
 /* ── Broadcaster colours ────────────────────────────────── */
 
 const CHANNEL_COLORS = {
@@ -320,6 +358,11 @@ const mediaServerStatus = document.getElementById("mediaServerStatus");
 const currentDownloadRoot = document.getElementById("currentDownloadRoot");
 const searchRssLink = document.getElementById("searchRssLink");
 const rootLockedNote = document.getElementById("rootLockedNote");
+const rootResetButton = document.getElementById("rootResetButton");
+
+rootResetButton.addEventListener("click", () => {
+  settingsForm.elements.download_root.value = rootResetButton.dataset.path || "";
+});
 
 const activityBar = document.getElementById("activityBar");
 const activityText = document.getElementById("activityText");
@@ -335,6 +378,27 @@ let currentDownloads = [];
 let currentRules = [];
 let currentTotal = 0;
 let activeDetail = null;
+let hasSearched = false;
+let pageSize = Number(localStorage.getItem("mn.pageSize")) || 25;
+let pageOffset = 0;
+
+const pageSizeSelect = document.getElementById("pageSize");
+const pagerFoot = document.getElementById("pagerFoot");
+const pageRange = document.getElementById("pageRange");
+const pagePrevButtons = [document.getElementById("pagePrev"), document.getElementById("pagePrevFoot")];
+const pageNextButtons = [document.getElementById("pageNext"), document.getElementById("pageNextFoot")];
+
+pageSizeSelect.value = String(pageSize);
+pageSizeSelect.addEventListener("change", () => {
+  pageSize = Number(pageSizeSelect.value) || 25;
+  localStorage.setItem("mn.pageSize", String(pageSize));
+  if (hasSearched) runSearch(0);
+});
+
+pagePrevButtons.forEach((btn) =>
+  btn.addEventListener("click", () => runSearch(Math.max(0, pageOffset - pageSize))),
+);
+pageNextButtons.forEach((btn) => btn.addEventListener("click", () => runSearch(pageOffset + pageSize)));
 
 /* ── Tabs ───────────────────────────────────────────────── */
 
@@ -379,8 +443,14 @@ document.addEventListener("keydown", (e) => {
 
 /* ── Search ─────────────────────────────────────────────── */
 
-searchForm.addEventListener("submit", async (event) => {
+searchForm.addEventListener("submit", (event) => {
   event.preventDefault();
+  runSearch(0);
+});
+
+async function runSearch(offset) {
+  pageOffset = Math.max(0, offset);
+  hasSearched = true;
   searchStatus.textContent = t("search.running");
   try {
     const response = await fetchJson("/api/search", {
@@ -389,26 +459,43 @@ searchForm.addEventListener("submit", async (event) => {
     });
     currentResults = response.results || [];
     currentTotal = response.total || 0;
+    learnChannels(currentResults);
     renderResults(currentResults);
-    searchStatus.textContent = t("search.hits", { n: currentResults.length, total: currentTotal });
+    updatePager();
     updateSearchRssLink();
+    // Jump back to the first row so page 2 does not start mid-list.
+    if (pageOffset > 0) resultsList.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     searchStatus.textContent = error.message;
+    pagerFoot.hidden = true;
   }
-});
+}
+
+function updatePager() {
+  const from = currentResults.length ? pageOffset + 1 : 0;
+  const to = pageOffset + currentResults.length;
+  searchStatus.textContent = t("search.hits", { from, to, total: currentTotal });
+  pageRange.textContent = searchStatus.textContent;
+
+  const atStart = pageOffset === 0;
+  const atEnd = to >= currentTotal;
+  pagePrevButtons.forEach((btn) => (btn.disabled = atStart));
+  pageNextButtons.forEach((btn) => (btn.disabled = atEnd));
+  pagerFoot.hidden = atStart && atEnd;
+}
 
 function searchPayloadFromForm() {
   const payload = Object.fromEntries(new FormData(searchForm).entries());
   payload.min_duration_minutes = numberOrNull(payload.min_duration_minutes);
   payload.max_duration_minutes = numberOrNull(payload.max_duration_minutes);
-  payload.size = 40;
-  payload.offset = 0;
+  payload.size = pageSize;
+  payload.offset = pageOffset;
   return payload;
 }
 
 function renderResults(results) {
   if (!results.length) {
-    resultsList.innerHTML = `<p class="empty">${escapeHtml(currentTotal === 0 && searchStatus.textContent !== t("search.idle") ? t("results.none") : t("results.empty"))}</p>`;
+    resultsList.innerHTML = `<p class="empty">${escapeHtml(hasSearched ? t("results.none") : t("results.empty"))}</p>`;
     return;
   }
   resultsList.innerHTML = "";
@@ -521,8 +608,15 @@ function renderDownloads(items) {
 
     const retry = node.querySelector(".dl-retry");
     const cancel = node.querySelector(".dl-cancel");
+    const del = node.querySelector(".dl-delete");
     retry.disabled = !["failed", "canceled"].includes(item.status);
     cancel.disabled = !["queued", "downloading"].includes(item.status);
+    del.disabled = ["queued", "downloading"].includes(item.status);
+    del.addEventListener("click", async () => {
+      if (!window.confirm(t("queue.delete"))) return;
+      await fetch(`/api/downloads/${item.id}`, { method: "DELETE" });
+      await refreshDownloads();
+    });
     retry.addEventListener("click", async () => {
       await fetchJson(`/api/downloads/${item.id}/retry`, { method: "POST" });
       await refreshDownloads();
@@ -719,11 +813,16 @@ function applySettings(settings) {
   el.jellyfin_auto_scan.checked = Boolean(settings.jellyfin_auto_scan);
   el.infuse_enabled.checked = Boolean(settings.infuse_enabled);
 
-  // Environment-managed keys are read-only: the container owns them.
-  const locked = settings.env_managed_keys || [];
-  const rootLocked = locked.includes("download_root");
-  el.download_root.readOnly = rootLocked;
-  rootLockedNote.hidden = !rootLocked;
+  // The container environment supplies the starting value; the user stays in
+  // control and may point the app at any other writable mounted path.
+  const containerRoot = (settings.container_defaults || {}).download_root;
+  if (containerRoot && containerRoot !== settings.download_root) {
+    rootResetButton.textContent = t("field.rootReset", { path: containerRoot });
+    rootResetButton.dataset.path = containerRoot;
+    rootLockedNote.hidden = false;
+  } else {
+    rootLockedNote.hidden = true;
+  }
 }
 
 /* ── Imports ────────────────────────────────────────────── */
@@ -926,6 +1025,7 @@ async function fetchJson(url, options = {}) {
 /* ── Boot ───────────────────────────────────────────────── */
 
 applyLanguage();
+renderChannelList();
 refreshSettings();
 refreshDownloads();
 refreshRules();

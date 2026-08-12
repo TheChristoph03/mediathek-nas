@@ -4,6 +4,10 @@ on:
   push:
     branches: [main]
     tags: ["v*"]
+  # Weekly rebuild so security fixes in the python:3.12-slim base image and its
+  # ffmpeg packages reach users without anyone pushing a commit.
+  schedule:
+    - cron: "0 4 * * 1"
   workflow_dispatch:
 
 env:
