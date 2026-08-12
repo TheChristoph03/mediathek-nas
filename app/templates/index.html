@@ -2,394 +2,417 @@
 <html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="light dark" />
     <title>{{ app_name }}</title>
     <link rel="stylesheet" href="/static/css/styles.css" />
   </head>
   <body>
-    <div class="page-shell">
-      <header class="hero">
-        <div class="hero-copy-block">
-          <p class="eyebrow">Synology-ready MVP+</p>
-          <h1>{{ app_name }}</h1>
-          <p class="hero-copy">
-            Suche, Detailansicht, Vorschau, Download-Queue, Serienregeln und erste Medienserver-
-            Vorbereitung in einer Synology-tauglichen Oberfläche.
-          </p>
-        </div>
-        <div class="hero-card">
-          <div class="metric">
-            <span class="metric-label">Zielordner</span>
-            <strong id="currentDownloadRoot">{{ default_download_root }}</strong>
-          </div>
-          <div class="metric">
-            <span class="metric-label">Status</span>
-            <strong>Queue, Regeln, Sidecars</strong>
+    <div class="app">
+      <header class="topbar">
+        <h1 class="brand">{{ app_name }}</h1>
+        <div class="topbar-right">
+          <span class="root-chip" id="currentDownloadRoot" title="Download-Root">{{ default_download_root }}</span>
+          <div class="lang-switch" role="group" aria-label="Sprache / Language">
+            <button type="button" class="lang-option is-active" data-lang="de">DE</button>
+            <button type="button" class="lang-option" data-lang="en">EN</button>
           </div>
         </div>
       </header>
 
-      <main class="layout">
-        <section class="panel panel-search">
-          <div class="panel-header">
-            <h2>Suche</h2>
-            <span class="section-note">MediathekViewWeb</span>
-          </div>
-          <form id="searchForm" class="search-grid">
-            <label>
-              Suchbegriff
-              <input type="text" name="query" placeholder="z. B. Terra X" />
-            </label>
-            <label>
-              Sender
-              <input type="text" name="channel" placeholder="ARD, ZDF, ARTE ..." />
-            </label>
-            <label>
-              Thema
-              <input type="text" name="topic" placeholder="Doku, Nachrichten ..." />
-            </label>
-            <label>
-              Von
-              <input type="date" name="start_date" />
-            </label>
-            <label>
-              Bis
-              <input type="date" name="end_date" />
-            </label>
-            <label>
-              Min. Minuten
-              <input type="number" name="min_duration_minutes" min="0" />
-            </label>
-            <label>
-              Max. Minuten
-              <input type="number" name="max_duration_minutes" min="0" />
-            </label>
-            <label>
-              Qualitaet
-              <select name="quality">
-                <option value="best">Beste verfuegbare</option>
-                <option value="high">Bevorzugt HD</option>
-                <option value="medium">Normal</option>
-                <option value="low">Klein</option>
-              </select>
-            </label>
-            <div class="search-actions">
-              <button type="submit">Suchen</button>
+      <button type="button" class="activity" id="activityBar" hidden>
+        <span class="activity-pulse" aria-hidden="true"></span>
+        <span class="activity-text" id="activityText"></span>
+        <span class="activity-pct" id="activityPct"></span>
+      </button>
+
+      <nav class="tabs" role="tablist">
+        <button type="button" class="tab is-active" data-tab="find" role="tab">
+          <span data-i18n="tab.find">Suchen</span>
+        </button>
+        <button type="button" class="tab" data-tab="queue" role="tab">
+          <span data-i18n="tab.queue">Downloads</span>
+          <span class="tab-count" id="queueCount" hidden>0</span>
+        </button>
+        <button type="button" class="tab" data-tab="rules" role="tab">
+          <span data-i18n="tab.rules">Abos</span>
+        </button>
+        <button type="button" class="tab" data-tab="setup" role="tab">
+          <span data-i18n="tab.setup">Einstellungen</span>
+        </button>
+      </nav>
+
+      <main class="stage">
+        <!-- ── FIND ─────────────────────────────────────────── -->
+        <section class="view is-active" data-view="find">
+          <form id="searchForm" class="searchbar">
+            <div class="searchbar-main">
+              <input
+                type="search"
+                name="query"
+                id="searchQuery"
+                data-i18n-placeholder="search.placeholder"
+                placeholder="Sendung, Thema, Stichwort"
+                autocomplete="off"
+              />
+              <button type="submit" class="btn btn-primary" data-i18n="search.submit">Suchen</button>
             </div>
+            <details class="filters" id="filterBox">
+              <summary data-i18n="search.filters">Filter</summary>
+              <div class="filter-grid">
+                <label>
+                  <span data-i18n="field.channel">Sender</span>
+                  <input type="text" name="channel" placeholder="ARD, ZDF, ARTE" autocomplete="off" />
+                </label>
+                <label>
+                  <span data-i18n="field.topic">Thema</span>
+                  <input type="text" name="topic" autocomplete="off" />
+                </label>
+                <label>
+                  <span data-i18n="field.from">Von</span>
+                  <input type="date" name="start_date" />
+                </label>
+                <label>
+                  <span data-i18n="field.to">Bis</span>
+                  <input type="date" name="end_date" />
+                </label>
+                <label>
+                  <span data-i18n="field.minMin">Min. Minuten</span>
+                  <input type="number" name="min_duration_minutes" min="0" inputmode="numeric" />
+                </label>
+                <label>
+                  <span data-i18n="field.maxMin">Max. Minuten</span>
+                  <input type="number" name="max_duration_minutes" min="0" inputmode="numeric" />
+                </label>
+                <label class="filter-wide">
+                  <span data-i18n="field.quality">Qualität</span>
+                  <select name="quality">
+                    <option value="best" data-i18n="quality.best">Beste verfügbare</option>
+                    <option value="high" data-i18n="quality.high">Bevorzugt HD</option>
+                    <option value="medium" data-i18n="quality.medium">Normal</option>
+                    <option value="low" data-i18n="quality.low">Klein</option>
+                  </select>
+                </label>
+              </div>
+            </details>
           </form>
-          <p id="searchStatus" class="status-line">Noch keine Suche gestartet.</p>
+
+          <div class="listbar">
+            <span id="searchStatus" data-i18n="search.idle">Noch nichts gesucht</span>
+            <a id="searchRssLink" class="quiet-link" href="/api/rss/search" target="_blank" rel="noreferrer">RSS</a>
+          </div>
+
+          <div id="resultsList" class="rows">
+            <p class="empty" data-i18n="results.empty">Suche etwas, um Treffer zu sehen.</p>
+          </div>
         </section>
 
-        <section class="panel panel-detail">
-          <div class="panel-header">
-            <h2>Details & Vorschau</h2>
-            <span class="section-note">Preview</span>
+        <!-- ── QUEUE ────────────────────────────────────────── -->
+        <section class="view" data-view="queue">
+          <div class="listbar">
+            <span data-i18n="queue.title">Warteschlange und Verlauf</span>
           </div>
-          <div id="detailPanel" class="empty-state">
-            Waehle einen Treffer aus, um Beschreibung, Streaming-Link und Download-Optionen zu sehen.
+          <div id="downloadList" class="rows">
+            <p class="empty" data-i18n="queue.empty">Noch keine Downloads.</p>
           </div>
         </section>
 
-        <section class="panel panel-settings">
-          <div class="panel-header">
-            <h2>Download-Einstellungen</h2>
-            <span class="section-note">Queue & Naming</span>
-          </div>
-          <form id="settingsForm" class="search-grid">
-            <label>
-              Download-Root
-              <input type="text" name="download_root" value="{{ default_download_root }}" />
-            </label>
-            <label>
-              Gleichzeitige Downloads
-              <input type="number" name="concurrent_downloads" min="1" max="5" />
-            </label>
-            <label>
-              Auto-Retrys
-              <input type="number" name="max_retries" min="0" max="5" />
-            </label>
-            <label>
-              Dateiname
-              <input type="text" name="filename_template" placeholder="{date}_{channel}_{title}" />
-            </label>
-            <label>
-              Unterordner
-              <input type="text" name="subfolder_template" placeholder="{channel}/{topic}" />
-            </label>
-            <label>
-              Regel-Limit
-              <input type="number" name="rule_run_limit" min="1" max="100" />
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="skip_duplicates" />
-              <span>Dubletten global verhindern</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="scheduler_enabled" />
-              <span>Regeln automatisch im Hintergrund ausfuehren</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="create_nfo_sidecar" />
-              <span>NFO-Datei fuer Medienserver schreiben</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="create_json_sidecar" />
-              <span>JSON-Metadaten schreiben</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="plex_enabled" />
-              <span>Plex-Integration aktivieren</span>
-            </label>
-            <label>
-              Plex Basis-URL
-              <input type="text" name="plex_base_url" placeholder="http://192.168.x.x:32400" />
-            </label>
-            <label>
-              Plex Token
-              <input type="text" name="plex_token" placeholder="X-Plex-Token" />
-            </label>
-            <label>
-              Plex Section-ID
-              <input type="text" name="plex_library_section" placeholder="z. B. 5" />
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="plex_auto_scan" />
-              <span>Plex nach Download automatisch scannen</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="jellyfin_enabled" />
-              <span>Jellyfin-Integration aktivieren</span>
-            </label>
-            <label>
-              Jellyfin Basis-URL
-              <input type="text" name="jellyfin_base_url" placeholder="http://192.168.x.x:8096" />
-            </label>
-            <label>
-              Jellyfin API-Key
-              <input type="text" name="jellyfin_api_key" placeholder="API-Key" />
-            </label>
-            <label>
-              Jellyfin Library-ID optional
-              <input type="text" name="jellyfin_library_id" placeholder="optional" />
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="jellyfin_auto_scan" />
-              <span>Jellyfin nach Download automatisch aktualisieren</span>
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="infuse_enabled" />
-              <span>Infuse-Links auf Apple-Geraeten anzeigen</span>
-            </label>
-            <div class="search-actions">
-              <button type="submit">Speichern</button>
+        <!-- ── RULES ────────────────────────────────────────── -->
+        <section class="view" data-view="rules">
+          <div class="listbar">
+            <span id="ruleStatus" data-i18n="rules.idle">Noch kein Abo angelegt</span>
+            <div class="listbar-actions">
+              <button type="button" class="btn btn-ghost" id="runDueRulesButton" data-i18n="rules.runDue">Fällige prüfen</button>
+              <button type="button" class="btn btn-ghost" id="runAllRulesButton" data-i18n="rules.runAll">Alle prüfen</button>
             </div>
-          </form>
-          <p class="hint">
-            Platzhalter fuer Namen und Ordner: <code>{date}</code>, <code>{year}</code>,
-            <code>{channel}</code>, <code>{topic}</code>, <code>{title}</code>, <code>{quality}</code>
-          </p>
-          <p id="settingsStatus" class="status-line"></p>
+          </div>
+
+          <div id="rulesList" class="rows">
+            <p class="empty" data-i18n="rules.empty">Noch keine Abos vorhanden.</p>
+          </div>
+
+          <details class="block" id="ruleFormBox">
+            <summary data-i18n="rules.new">Neues Abo anlegen</summary>
+            <form id="ruleForm" class="form-grid">
+              <label>
+                <span data-i18n="rules.name">Name</span>
+                <input type="text" name="name" required />
+              </label>
+              <label>
+                <span data-i18n="field.query">Suchbegriff</span>
+                <input type="text" name="query" />
+              </label>
+              <label>
+                <span data-i18n="field.channel">Sender</span>
+                <input type="text" name="channel" />
+              </label>
+              <label>
+                <span data-i18n="field.topic">Thema</span>
+                <input type="text" name="topic" />
+              </label>
+              <label>
+                <span data-i18n="field.quality">Qualität</span>
+                <select name="quality">
+                  <option value="best" data-i18n="quality.best">Beste verfügbare</option>
+                  <option value="high" data-i18n="quality.high">Bevorzugt HD</option>
+                  <option value="medium" data-i18n="quality.medium">Normal</option>
+                  <option value="low" data-i18n="quality.low">Klein</option>
+                </select>
+              </label>
+              <label>
+                <span data-i18n="rules.interval">Intervall (Min.)</span>
+                <input type="number" name="interval_minutes" min="5" value="180" inputmode="numeric" />
+              </label>
+              <label>
+                <span data-i18n="rules.keepLatest">Treffer merken</span>
+                <input type="number" name="keep_latest" min="1" placeholder="20" inputmode="numeric" />
+              </label>
+              <label>
+                <span data-i18n="rules.target">Zielordner (optional)</span>
+                <input type="text" name="target_directory" />
+              </label>
+              <label>
+                <span data-i18n="field.subfolder">Unterordner</span>
+                <input type="text" name="folder_template" placeholder="{channel}/{topic}" />
+              </label>
+              <label>
+                <span data-i18n="field.filename">Dateiname</span>
+                <input type="text" name="filename_template" placeholder="{date}_{title}" />
+              </label>
+              <label class="check">
+                <input type="checkbox" name="auto_download" />
+                <span data-i18n="rules.auto">Neue Treffer sofort laden</span>
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-i18n="rules.save">Abo speichern</button>
+              </div>
+            </form>
+          </details>
         </section>
 
-        <section class="panel panel-library">
-          <div class="panel-header">
-            <h2>Medienserver & RSS</h2>
-            <span class="section-note">Plex · Jellyfin · Infuse</span>
-          </div>
-          <div class="inline-actions">
-            <button id="scanMediaServersButton" type="button">Medienserver jetzt aktualisieren</button>
-            <a id="searchRssLink" class="action-link" href="/api/rss/search" target="_blank" rel="noreferrer">Aktuelle Suche als RSS</a>
-          </div>
-          <p id="mediaServerStatus" class="status-line">Noch kein Medienserver-Status geladen.</p>
-          <div id="mediaServerPanel" class="empty-state">Plex, Jellyfin und Infuse werden hier angezeigt.</div>
-        </section>
+        <!-- ── SETUP ────────────────────────────────────────── -->
+        <section class="view" data-view="setup">
+          <details class="block" open>
+            <summary data-i18n="setup.downloads">Downloads</summary>
+            <form id="settingsForm" class="form-grid">
+              <label class="form-wide">
+                <span data-i18n="field.root">Download-Root</span>
+                <input type="text" name="download_root" value="{{ default_download_root }}" />
+                <small class="locked-note" id="rootLockedNote" hidden data-i18n="field.rootLocked">
+                  Wird vom Container vorgegeben und kann hier nicht geändert werden.
+                </small>
+              </label>
+              <label>
+                <span data-i18n="field.parallel">Gleichzeitig</span>
+                <input type="number" name="concurrent_downloads" min="1" max="5" inputmode="numeric" />
+              </label>
+              <label>
+                <span data-i18n="field.retries">Auto-Retrys</span>
+                <input type="number" name="max_retries" min="0" max="5" inputmode="numeric" />
+              </label>
+              <label>
+                <span data-i18n="field.filename">Dateiname</span>
+                <input type="text" name="filename_template" />
+              </label>
+              <label>
+                <span data-i18n="field.subfolder">Unterordner</span>
+                <input type="text" name="subfolder_template" />
+              </label>
+              <label>
+                <span data-i18n="field.ruleLimit">Abo-Limit</span>
+                <input type="number" name="rule_run_limit" min="1" max="100" inputmode="numeric" />
+              </label>
+              <p class="hint form-wide">
+                <span data-i18n="field.tokens">Platzhalter</span>:
+                <code>{date}</code> <code>{year}</code> <code>{channel}</code>
+                <code>{topic}</code> <code>{title}</code> <code>{quality}</code>
+              </p>
+              <label class="check form-wide">
+                <input type="checkbox" name="skip_duplicates" />
+                <span data-i18n="opt.skipDupes">Dubletten global verhindern</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="scheduler_enabled" />
+                <span data-i18n="opt.scheduler">Abos im Hintergrund ausführen</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="create_nfo_sidecar" />
+                <span data-i18n="opt.nfo">NFO-Datei schreiben</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="create_json_sidecar" />
+                <span data-i18n="opt.json">JSON-Metadaten schreiben</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="plex_enabled" />
+                <span data-i18n="opt.plex">Plex-Integration</span>
+              </label>
+              <label>
+                <span>Plex URL</span>
+                <input type="text" name="plex_base_url" placeholder="http://192.168.x.x:32400" />
+              </label>
+              <label>
+                <span>Plex Token</span>
+                <input type="password" name="plex_token" autocomplete="off" />
+              </label>
+              <label>
+                <span data-i18n="opt.plexSection">Plex Section-ID</span>
+                <input type="text" name="plex_library_section" />
+              </label>
+              <label class="check">
+                <input type="checkbox" name="plex_auto_scan" />
+                <span data-i18n="opt.plexScan">Nach Download scannen</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="jellyfin_enabled" />
+                <span data-i18n="opt.jellyfin">Jellyfin-Integration</span>
+              </label>
+              <label>
+                <span>Jellyfin URL</span>
+                <input type="text" name="jellyfin_base_url" placeholder="http://192.168.x.x:8096" />
+              </label>
+              <label>
+                <span>Jellyfin API-Key</span>
+                <input type="password" name="jellyfin_api_key" autocomplete="off" />
+              </label>
+              <label>
+                <span data-i18n="opt.jellyfinLib">Jellyfin Library-ID</span>
+                <input type="text" name="jellyfin_library_id" />
+              </label>
+              <label class="check">
+                <input type="checkbox" name="jellyfin_auto_scan" />
+                <span data-i18n="opt.jellyfinScan">Nach Download aktualisieren</span>
+              </label>
+              <label class="check form-wide">
+                <input type="checkbox" name="infuse_enabled" />
+                <span data-i18n="opt.infuse">Infuse-Links auf Apple-Geräten</span>
+              </label>
+              <div class="form-actions">
+                <button type="submit" class="btn btn-primary" data-i18n="setup.save">Speichern</button>
+                <span id="settingsStatus" class="inline-status"></span>
+              </div>
+            </form>
+          </details>
 
-        <section class="panel panel-rules">
-          <div class="panel-header">
-            <h2>Serien & Regeln</h2>
-            <span class="section-note">Scheduler</span>
-          </div>
-          <form id="ruleForm" class="search-grid">
-            <label>
-              Regelname
-              <input type="text" name="name" placeholder="z. B. Terra X Abo" />
-            </label>
-            <label>
-              Suchbegriff
-              <input type="text" name="query" placeholder="Terra X" />
-            </label>
-            <label>
-              Sender
-              <input type="text" name="channel" placeholder="ZDF" />
-            </label>
-            <label>
-              Thema
-              <input type="text" name="topic" placeholder="Doku" />
-            </label>
-            <label>
-              Qualitaet
-              <select name="quality">
-                <option value="best">Beste verfuegbare</option>
-                <option value="high">Bevorzugt HD</option>
-                <option value="medium">Normal</option>
-                <option value="low">Klein</option>
-              </select>
-            </label>
-            <label>
-              Zielordner optional
-              <input type="text" name="target_directory" placeholder="/downloads/Dokus/Terra X" />
-            </label>
-            <label>
-              Intervall in Minuten
-              <input type="number" name="interval_minutes" min="5" placeholder="180" />
-            </label>
-            <label>
-              Max. Treffer merken
-              <input type="number" name="keep_latest" min="1" placeholder="20" />
-            </label>
-            <label>
-              Regel-Unterordner
-              <input type="text" name="folder_template" placeholder="{channel}/{topic}" />
-            </label>
-            <label>
-              Regel-Dateiname
-              <input type="text" name="filename_template" placeholder="{date}_{title}" />
-            </label>
-            <label class="checkbox-row">
-              <input type="checkbox" name="auto_download" />
-              <span>Neue Treffer direkt laden</span>
-            </label>
-            <div class="search-actions">
-              <button type="submit">Regel speichern</button>
+          <details class="block">
+            <summary data-i18n="setup.servers">Medienserver</summary>
+            <div class="block-body">
+              <button type="button" class="btn btn-ghost" id="scanMediaServersButton" data-i18n="setup.scan">
+                Jetzt aktualisieren
+              </button>
+              <p id="mediaServerStatus" class="inline-status"></p>
+              <div id="mediaServerPanel" class="checks"></div>
             </div>
-          </form>
-          <div class="inline-actions">
-            <button id="runAllRulesButton" type="button" class="button-secondary">Alle Regeln pruefen</button>
-            <button id="runDueRulesButton" type="button" class="button-secondary">Faellige Regeln jetzt ausfuehren</button>
-          </div>
-          <p id="ruleStatus" class="status-line">Noch keine Regel angelegt.</p>
-          <div id="rulesList" class="rules-list empty-state">Noch keine Regeln vorhanden.</div>
-        </section>
+          </details>
 
-        <section class="panel panel-system">
-          <div class="panel-header">
-            <h2>System-Check</h2>
-            <span class="section-note">Preflight</span>
-          </div>
-          <div id="systemCheckPanel" class="empty-state">
-            Pruefe Container, Pfade und benoetigte Werkzeuge fuer Synology und Docker.
-          </div>
-        </section>
-
-        <section class="panel panel-imports">
-          <div class="panel-header">
-            <h2>Import & Dubletten</h2>
-            <span class="section-note">MediathekView Bestand</span>
-          </div>
-          <form id="filesystemImportForm" class="search-grid">
-            <label>
-              Ordner importieren
-              <input type="text" name="source_path" placeholder="/volume1/video/Movies/Fernseh Mediathek" />
-            </label>
-            <label>
-              Max. Dateien
-              <input type="number" name="max_files" min="1" max="5000" value="500" />
-            </label>
-            <div class="search-actions">
-              <button type="submit">Dateien einlesen</button>
+          <details class="block">
+            <summary data-i18n="setup.import">Import und Dubletten</summary>
+            <div class="block-body">
+              <form id="filesystemImportForm" class="form-grid">
+                <label class="form-wide">
+                  <span data-i18n="import.folder">Ordner einlesen</span>
+                  <input type="text" name="source_path" placeholder="/media/mediathek" />
+                </label>
+                <label>
+                  <span data-i18n="import.maxFiles">Max. Dateien</span>
+                  <input type="number" name="max_files" min="1" max="5000" value="500" inputmode="numeric" />
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-ghost" data-i18n="import.run">Einlesen</button>
+                </div>
+              </form>
+              <form id="listImportForm" class="form-grid">
+                <label class="form-wide">
+                  <span data-i18n="import.list">Listendatei einlesen</span>
+                  <input type="text" name="source_path" placeholder="/config/liste.json" />
+                </label>
+                <div class="form-actions">
+                  <button type="submit" class="btn btn-ghost" data-i18n="import.run">Einlesen</button>
+                </div>
+              </form>
+              <p id="importStatus" class="inline-status"></p>
+              <div id="duplicatesPanel" class="checks"></div>
             </div>
-          </form>
-          <form id="listImportForm" class="search-grid">
-            <label>
-              Listen-Datei importieren
-              <input type="text" name="source_path" placeholder="/volume1/docker/mediathek-nas/app/liste.json" />
-            </label>
-            <div class="search-actions">
-              <button type="submit" class="button-secondary">Liste importieren</button>
+          </details>
+
+          <details class="block">
+            <summary data-i18n="setup.system">System-Check</summary>
+            <div class="block-body">
+              <div id="systemCheckPanel" class="checks"></div>
             </div>
-          </form>
-          <p id="importStatus" class="status-line">Noch kein Import ausgefuehrt.</p>
-          <div id="duplicatesPanel" class="empty-state">Noch keine Dubletten erkannt.</div>
-        </section>
-
-        <section class="panel panel-results">
-          <div class="panel-header">
-            <h2>Ergebnisse</h2>
-            <span id="resultCount" class="section-note">0 Treffer</span>
-          </div>
-          <div id="resultsList" class="results-list empty-state">
-            Fuehre eine Suche aus, um Treffer zu sehen.
-          </div>
-        </section>
-
-        <section class="panel panel-queue">
-          <div class="panel-header">
-            <h2>Queue & Historie</h2>
-            <span class="section-note">Parallel</span>
-          </div>
-          <div id="downloadList" class="download-list empty-state">
-            Noch keine Downloads vorhanden.
-          </div>
+          </details>
         </section>
       </main>
     </div>
 
+    <!-- ── DETAIL SHEET ───────────────────────────────────── -->
+    <div class="sheet-backdrop" id="sheetBackdrop" hidden></div>
+    <aside class="sheet" id="detailSheet" hidden aria-modal="true" role="dialog">
+      <div class="sheet-grip" aria-hidden="true"></div>
+      <button type="button" class="sheet-close" id="sheetClose" aria-label="Schließen">&times;</button>
+      <div class="sheet-body" id="detailPanel"></div>
+    </aside>
+
     <template id="resultTemplate">
-      <article class="result-card">
-        <div class="result-main">
-          <div class="result-topline">
-            <span class="result-channel"></span>
-            <span class="result-date"></span>
-            <span class="result-quality"></span>
-          </div>
-          <h3 class="result-title"></h3>
-          <p class="result-topic"></p>
-          <p class="result-description"></p>
-        </div>
-        <div class="result-meta">
-          <span class="result-duration"></span>
-          <span class="result-presence"></span>
-          <button class="details-button button-secondary" type="button">Details</button>
-          <button class="download-button" type="button">Auf NAS laden</button>
-          <button class="rule-button button-secondary" type="button">Als Regel</button>
-        </div>
+      <article class="row">
+        <span class="row-bar"></span>
+        <button type="button" class="row-open">
+          <span class="row-meta">
+            <b class="row-channel"></b>
+            <span class="row-date"></span>
+            <span class="row-dur"></span>
+            <span class="row-flag"></span>
+          </span>
+          <span class="row-title"></span>
+          <span class="row-topic"></span>
+        </button>
+        <button type="button" class="row-act" title="Auf NAS laden">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 19h16" /></svg>
+        </button>
       </article>
     </template>
 
     <template id="downloadTemplate">
-      <article class="download-card">
-        <div class="download-head">
-          <h3 class="download-title"></h3>
-          <span class="download-status"></span>
-        </div>
-        <p class="download-path"></p>
-        <div class="progress-track"><div class="progress-bar"></div></div>
-        <p class="download-meta"></p>
-        <p class="download-error"></p>
-        <div class="download-actions">
-          <button class="retry-button" type="button">Erneut versuchen</button>
-          <button class="cancel-button button-secondary" type="button">Abbrechen</button>
-        </div>
+      <article class="row row-dl">
+        <span class="row-bar"><span class="row-bar-fill"></span></span>
+        <button type="button" class="row-open">
+          <span class="row-meta">
+            <b class="row-channel"></b>
+            <span class="dl-state"></span>
+            <span class="dl-pct"></span>
+          </span>
+          <span class="row-title"></span>
+          <span class="row-topic dl-path"></span>
+          <span class="row-topic dl-error"></span>
+        </button>
+        <button type="button" class="row-act dl-retry" title="Erneut versuchen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 11a8 8 0 1 0-2.3 5.7M20 5v6h-6" /></svg>
+        </button>
+        <button type="button" class="row-act dl-cancel" title="Abbrechen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18" /></svg>
+        </button>
       </article>
     </template>
 
     <template id="ruleTemplate">
-      <article class="rule-card">
-        <div class="rule-head">
-          <div>
-            <h3 class="rule-title"></h3>
-            <p class="rule-query"></p>
-          </div>
-          <span class="rule-state"></span>
-        </div>
-        <p class="rule-meta"></p>
-        <p class="rule-history"></p>
-        <div class="download-actions">
-          <button class="run-rule-button" type="button">Jetzt pruefen</button>
-          <button class="show-matches-button button-secondary" type="button">Treffer anzeigen</button>
-          <a class="rule-rss-link action-link" target="_blank" rel="noreferrer">RSS</a>
-        </div>
-        <div class="rule-matches empty-state" hidden>Noch keine Treffer gespeichert.</div>
+      <article class="row row-rule">
+        <span class="row-bar"></span>
+        <button type="button" class="row-open">
+          <span class="row-meta">
+            <b class="rule-state"></b>
+            <span class="rule-interval"></span>
+            <span class="rule-hits"></span>
+          </span>
+          <span class="row-title rule-title"></span>
+          <span class="row-topic rule-query"></span>
+          <span class="row-topic rule-history"></span>
+        </button>
+        <button type="button" class="row-act rule-run" title="Jetzt prüfen">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z" /></svg>
+        </button>
+        <a class="row-act rule-rss" target="_blank" rel="noreferrer" title="RSS">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 19a1 1 0 1 0 0-2 1 1 0 0 0 0 2M5 12a7 7 0 0 1 7 7M5 5a14 14 0 0 1 14 14" /></svg>
+        </a>
       </article>
     </template>
 
