@@ -36,7 +36,7 @@ jobs:
 
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v7
 
       # github.repository keeps the owner's original casing, but Docker refs must
       # be lowercase. metadata-action does this itself; the by-digest push below
