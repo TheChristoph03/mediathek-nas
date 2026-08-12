@@ -35,11 +35,49 @@ liegen, wenn man sich abends aufs Sofa setzt.**
 Verkürzt: MediathekView ist der Desktop-Client, das hier ist der Dauerläufer, der die
 Bibliothek füllt.
 
-## Schnellstart (fertiges Image)
+## Voraussetzungen
 
-Kein Build nötig. Ordner auf dem NAS anlegen, diese `docker-compose.yml` hineinlegen, die
-drei markierten Werte anpassen, dann im Container Manager unter **Projekt** → **Erstellen**
-auf diesen Ordner zeigen. Den Schritt „Webportal" im Assistenten überspringen.
+- Ein NAS oder Docker-Host mit **x86_64**-Prozessor. Die veröffentlichten Images
+  sind vorerst nur `linux/amd64` — auf einer ARM-Synology läuft der Pull durch
+  und der Container startet nicht. Dort selbst bauen oder auf arm64 warten.
+- Synology DSM 7 mit installiertem **Container Manager**, oder ein beliebiger
+  Docker-Host mit Compose v2.
+- Ein freigegebener Ordner für die Medien und einer für die App-Konfiguration.
+- Internetzugang aus dem Container heraus: er fragt MediathekViewWeb ab und
+  holt yt-dlp-Updates.
+
+## Schnellstart
+
+Etwa zehn Minuten. SSH brauchst du genau einmal, um eine numerische Benutzer-ID
+auszulesen — alles Weitere geht in der DSM-Oberfläche.
+
+### 1. Config-Ordner anlegen
+
+In der **File Station**, im freigegebenen Ordner `docker`:
+
+```
+docker/mediathek-nas/config
+```
+
+Der muss existieren, bevor das Projekt angelegt wird. Ein Bind-Mount auf einen
+fehlenden Ordner verhindert den Start.
+
+### 2. UID und GID des Medienordners ermitteln
+
+In DSM SSH aktivieren unter **Systemsteuerung → Terminal & SNMP**, verbinden, dann:
+
+```bash
+stat -c '%u:%g' "/volume1/video/Movies/DeinMedienordner"
+```
+
+Das ergibt etwa `1026:100`. Unter diesem Konto soll der Container laufen, damit
+die heruntergeladenen Dateien dir gehören und nicht root. Notieren; SSH kannst du
+danach wieder abschalten.
+
+### 3. Compose-Datei schreiben
+
+In der File Station `docker/mediathek-nas/app/docker-compose.yml` anlegen — der
+Name ist entscheidend, Container Manager sucht genau diese Datei.
 
 ```yaml
 services:
@@ -47,8 +85,7 @@ services:
     image: ghcr.io/thechristoph03/mediathek-nas:latest
     container_name: mediathek-nas
 
-    # ANPASSEN: UID:GID, der die heruntergeladenen Dateien gehören sollen.
-    # Ermitteln mit: stat -c '%u:%g' /volume1/video/DeinMedienordner
+    # Aus Schritt 2.
     user: "1026:100"
 
     ports:
@@ -62,29 +99,67 @@ services:
 
     volumes:
       - type: bind
-        source: /volume1/docker/mediathek-nas/config   # ANPASSEN
+        source: /volume1/docker/mediathek-nas/config       # aus Schritt 1
         target: /config
       - type: bind
-        source: /volume1/video/Movies/Mediathek        # ANPASSEN
+        source: /volume1/video/Movies/DeinMedienordner     # dein Medienordner
         target: /media/mediathek
 
     restart: unless-stopped
 ```
 
-Danach `http://<nas-ip>:8000` aufrufen.
+Achte auf die Volume-Pfade. Unter DSM beginnen sie je nach Lage des freigegebenen
+Ordners mit `/volume1` oder `/volume2` — die File Station zeigt das in den
+Ordnereigenschaften. Ein Pfad, der nur richtig aussieht, scheitert beim Start.
 
-Eine fertige Kopie dieser Datei liegt als [`docker-compose.ghcr.yml`](docker-compose.ghcr.yml) bei.
+Eine fertige Kopie liegt als [`docker-compose.ghcr.yml`](docker-compose.ghcr.yml) bei.
 
-### Die Zeile `user:` ist nicht optional
+### 4. Projekt anlegen
 
-Ohne sie läuft der Container als root, und jede heruntergeladene Datei gehört root —
-womit Plex, Jellyfin und die File Station schlecht zurechtkommen. Auf die UID/GID setzen,
-der der Medienordner gehört.
+**Container Manager → Projekt → Erstellen**
 
-### Beide Bind-Mounts müssen existieren und beschreibbar sein
+- Projektname: `mediathek-nas`
+- Pfad: zu `docker/mediathek-nas/app` navigieren
+- Quelle: vorhandene `docker-compose.yml` verwenden
+- **Weiter** → den Schritt *Webportal* überspringen, dort ist nichts einzustellen → **Fertig**
 
-Im Config-Mount liegt die SQLite-Datenbank. Existiert der Pfad nicht, startet der
-Container gar nicht erst und meldet `bind source path does not exist`.
+Er zieht das Image und startet. Unter **Container** muss `mediathek-nas` auf
+*Wird ausgeführt* stehen; im Protokoll erscheint `Uvicorn running on http://0.0.0.0:8000`.
+
+### 5. Aufrufen
+
+`http://<nas-ip>:8000`
+
+Unter **Einstellungen → System-Check** sollte alles grün sein. Dann etwas suchen
+und beim Treffer auf den Download-Pfeil tippen.
+
+## Aktualisieren
+
+**Container Manager → Projekt → mediathek-nas → Aktion → Erstellen.** Das zieht das
+aktuelle Image und legt den Container neu an. Konfiguration und Datenbank bleiben —
+sie liegen im gemounteten Config-Ordner, nicht im Container.
+
+Auf der Kommandozeile dasselbe:
+
+```bash
+cd /volume1/docker/mediathek-nas/app
+docker compose pull && docker compose up -d
+```
+
+## Wo Leute hängenbleiben
+
+**Die Zeile `user:` ist nicht optional.** Ohne sie läuft der Container als root,
+und jede heruntergeladene Datei gehört root — womit Plex, Jellyfin und die File
+Station schlecht zurechtkommen.
+
+**Beide Bind-Mounts müssen existieren.** Ein fehlender Quellpfad ergibt
+`bind source path does not exist`, und der Container startet nie.
+
+**Port 8000 schon belegt?** Nur die linke Seite ändern: `- "8123:8000"` liefert die
+App auf 8123. Die rechte Seite ist der Port im Container und bleibt 8000.
+
+**Leerzeichen in Ordnernamen funktionieren**, aber der Pfad muss exakt stimmen,
+inklusive Groß- und Kleinschreibung.
 
 ## Konfiguration
 
@@ -114,7 +189,11 @@ Werte werden bereinigt und auf 80 Zeichen gekürzt.
 ## Funktionen
 
 **Suche** — vollständige MediathekViewWeb-Abfragen mit Filtern für Sender, Thema, Datum,
-Laufzeit und Qualität; Vorschau- und Streaming-Links je Treffer.
+Laufzeit und Qualität; Vorschau- und Streaming-Links je Treffer. Die Senderauswahl hält
+sich selbst aktuell, indem sie aktuelle Einträge stichprobenartig auswertet.
+
+**Oberfläche** — Deutsch und Englisch, oben umschaltbar; die Startsprache richtet sich
+nach dem Browser.
 
 **Downloads** — Warteschlange mit Fortschritt, parallele Worker, Wiederholung und Abbruch,
 globale Dublettenerkennung über Downloads und importierte Dateien hinweg.
@@ -169,10 +248,10 @@ nativer MediathekView-Datenformate.
 ## Geplant
 
 - `linux/arm64`-Images für ARM-basierte Synology-Modelle
-- Überarbeitung von UI und UX — kompakteres Layout, bessere Bedienung am Handy
-- Englische Oberfläche
-- Ordnerauswahl in den Einstellungen
-- Screenshots
+- Tests in der CI, bevor ein Image veröffentlicht wird
+- Der Datumsfilter greift derzeit lokal nach dem Paging, dadurch kann eine
+  gefilterte Seite kürzer sein und die Gesamtzahl bleibt ungefiltert
+- Ordnerauswahl in den Einstellungen statt Pfad tippen
 
 ## Dank
 

@@ -32,11 +32,49 @@ NAS by the time you sit down on the sofa.**
 
 Roughly: MediathekView is the desktop client, this is the always-on library filler.
 
-## Quick start (prebuilt image)
+## Requirements
 
-No build required. Create a folder on your NAS, put this `docker-compose.yml` in it,
-adjust the three marked values, then point Container Manager → **Project** → **Create**
-at that folder. Skip the "Web Portal" step in the wizard.
+- A NAS or Docker host with an **x86_64** CPU. Published images are `linux/amd64`
+  only for now — on an ARM-based Synology the pull succeeds and the container
+  fails to start. Build from source there, or wait for arm64 images.
+- Synology DSM 7 with **Container Manager** installed, or any Docker host with
+  Compose v2.
+- A shared folder for your media, and one for the app's config.
+- Internet access from the container: it queries MediathekViewWeb and fetches
+  yt-dlp updates.
+
+## Quick start
+
+Roughly ten minutes. You need SSH once, to read a numeric user ID — everything
+else happens in the DSM interface.
+
+### 1. Create the config folder
+
+In **File Station**, inside your `docker` shared folder, create:
+
+```
+docker/mediathek-nas/config
+```
+
+This must exist before you create the project. A bind mount pointing at a
+missing folder makes the container refuse to start.
+
+### 2. Find the UID and GID that own your media
+
+In DSM, enable SSH under **Control Panel → Terminal & SNMP**, connect, and run:
+
+```bash
+stat -c '%u:%g' "/volume1/video/Movies/YourMediaFolder"
+```
+
+You get something like `1026:100`. That is the account the container should run
+as, so downloaded files belong to you rather than to root. Note it down; you can
+switch SSH off again afterwards.
+
+### 3. Write the compose file
+
+In File Station, create `docker/mediathek-nas/app/docker-compose.yml` — the name
+matters, Container Manager looks for exactly this file.
 
 ```yaml
 services:
@@ -44,8 +82,7 @@ services:
     image: ghcr.io/thechristoph03/mediathek-nas:latest
     container_name: mediathek-nas
 
-    # CHANGE ME: the UID:GID that should own downloaded files.
-    # Find yours with: stat -c '%u:%g' /volume1/video/YourMediaFolder
+    # From step 2.
     user: "1026:100"
 
     ports:
@@ -59,29 +96,66 @@ services:
 
     volumes:
       - type: bind
-        source: /volume1/docker/mediathek-nas/config   # CHANGE ME
+        source: /volume1/docker/mediathek-nas/config      # from step 1
         target: /config
       - type: bind
-        source: /volume1/video/Movies/Mediathek        # CHANGE ME
+        source: /volume1/video/Movies/YourMediaFolder     # your media folder
         target: /media/mediathek
 
     restart: unless-stopped
 ```
 
-Then open `http://<nas-ip>:8000`.
+Watch the volume paths. On DSM they start with `/volume1` or `/volume2` depending
+on where the shared folder lives — File Station shows this under folder
+properties. A path that merely looks right will fail at start.
 
-A ready-made copy of this file ships as [`docker-compose.ghcr.yml`](docker-compose.ghcr.yml).
+A ready-made copy is [`docker-compose.ghcr.yml`](docker-compose.ghcr.yml).
 
-### The `user:` line is not optional
+### 4. Create the project
 
-Without it the container runs as root and every downloaded file ends up root-owned,
-which Plex, Jellyfin and File Station all handle badly. Set it to the UID/GID that owns
-your media folder.
+**Container Manager → Project → Create**
 
-### Both bind mounts must exist and be writable
+- Project name: `mediathek-nas`
+- Path: browse to `docker/mediathek-nas/app`
+- Source: use the existing `docker-compose.yml`
+- **Next** → skip the *Web Portal* step, nothing to configure there → **Done**
 
-The config mount holds the SQLite database. If the path does not exist, the container
-will refuse to start with a `bind source path does not exist` error.
+It pulls the image and starts. Under **Container**, `mediathek-nas` should read
+*Running*; the log tab shows `Uvicorn running on http://0.0.0.0:8000`.
+
+### 5. Open it
+
+`http://<nas-ip>:8000`
+
+Under **Settings → System check**, everything should be green. Then search for
+something and use the download arrow on a result.
+
+## Updating
+
+**Container Manager → Project → mediathek-nas → Action → Build.** That pulls the
+current image and recreates the container. Your config and database survive —
+they live in the mounted config folder, not in the container.
+
+From a shell, the same thing is:
+
+```bash
+cd /volume1/docker/mediathek-nas/app
+docker compose pull && docker compose up -d
+```
+
+## Things that trip people up
+
+**The `user:` line is not optional.** Without it the container runs as root and
+every downloaded file ends up root-owned, which Plex, Jellyfin and File Station
+all handle badly.
+
+**Both bind mounts must exist.** A missing source path gives
+`bind source path does not exist` and the container never starts.
+
+**Port 8000 already taken?** Change the left side only: `- "8123:8000"` serves
+the app on 8123. The right side is the port inside the container and stays 8000.
+
+**Spaces in folder names work**, but the path must be exact, including case.
 
 ## Configuration
 
@@ -119,7 +193,11 @@ Values are slugified and truncated to 80 characters.
 ## Features
 
 **Search** — full MediathekViewWeb query support with filters for channel, topic, date,
-runtime and quality; preview and streaming links per result.
+runtime and quality; preview and streaming links per result. The channel picker keeps
+itself current by sampling recent entries upstream.
+
+**Interface** — German and English, switchable in the header; the initial language
+follows your browser.
 
 **Downloads** — queue with live progress, parallel workers, retry and cancel,
 global duplicate detection across downloads and previously imported files.
@@ -179,10 +257,10 @@ MediathekView data formats.
 ## Roadmap
 
 - `linux/arm64` images for ARM-based Synology models
-- UI and UX rework — denser layout, better mobile ergonomics
-- English UI
-- Folder picker in settings
-- Screenshots
+- Tests running in CI before an image is published
+- Date filtering currently happens locally after paging, so a filtered page can
+  be short and the total stays unfiltered
+- A folder picker in settings instead of typing a path
 
 ## Credits
 
