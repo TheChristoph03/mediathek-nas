@@ -55,7 +55,7 @@ async def create_download(payload: DownloadCreateRequest) -> dict:
             status_code=400,
             detail=(
                 f"Zielordner '{exc.filename or download_manager.get_download_root()}' ist nicht "
-                "beschreibbar. Pruefe den Download-Root in den Einstellungen sowie die "
+                "beschreibbar. Prüfe den Download-Root in den Einstellungen sowie die "
                 "Rechte des gemounteten Verzeichnisses."
             ),
         ) from exc

@@ -166,6 +166,7 @@ the app on 8123. The right side is the port inside the container and stays 8000.
 | `APP_DATA_DIR` | `/config` | Holds `mediathek_nas.db` |
 | `HOME` | `/config` | Needed so `yt-dlp` has a writable cache directory |
 | `YTDLP_AUTO_UPDATE` | `1` | Fetch the current yt-dlp on start; `0` keeps the pinned one |
+| `YTDLP_UPDATE_INTERVAL_MINUTES` | `1440` | How stale the cached yt-dlp may get before it is fetched again |
 | `TZ` | `Europe/Berlin` | Affects scheduler timing and log timestamps |
 
 `DOWNLOAD_ROOT` seeds the value on a fresh install; after that the UI owns it.
@@ -209,8 +210,10 @@ download matches automatically. Per-rule match history and RSS feed.
 **Library integration** — `.nfo` and `.info.json` sidecars, Plex and Jellyfin refresh
 hooks, Infuse deep links, and an importer for media you already have on disk.
 
-**Diagnostics** — `GET /api/system-check` verifies `yt-dlp`, `ffmpeg`, and that the
-config and download paths are writable from inside the container.
+**Diagnostics** — **Settings → System check** reports the UID and GID the container
+runs as, ready to paste into `user:`, plus for each mounted folder whether it is
+writable and which account owns it. When something cannot be written it names the
+path and the accounts involved rather than failing generically.
 
 ![Settings](docs/screenshots/settings.png)
 

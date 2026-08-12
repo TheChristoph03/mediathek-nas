@@ -79,7 +79,7 @@ class AppSettingsService:
         if not os.access(path, os.W_OK):
             raise ValueError(
                 f"'{path}' existiert, ist aber nicht beschreibbar. "
-                f"Pruefe die Rechte des gemounteten Verzeichnisses."
+                f"Prüfe die Rechte des gemounteten Verzeichnisses."
             )
 
     def _normalize_value(self, key: str, value: Any) -> str:

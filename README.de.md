@@ -167,16 +167,26 @@ inklusive Groß- und Kleinschreibung.
 
 | Variable | Standard | Bedeutung |
 | --- | --- | --- |
-| `DOWNLOAD_ROOT` | `/downloads` | Zielverzeichnis im Container |
+| `DOWNLOAD_ROOT` | `/downloads` | Anfängliches Zielverzeichnis, in der Oberfläche änderbar |
 | `APP_DATA_DIR` | `/config` | Enthält `mediathek_nas.db` |
 | `HOME` | `/config` | Nötig, damit `yt-dlp` ein beschreibbares Cache-Verzeichnis hat |
+| `YTDLP_AUTO_UPDATE` | `1` | Aktuelles yt-dlp beim Start holen; `0` bleibt bei der gepinnten Version |
+| `YTDLP_UPDATE_INTERVAL_MINUTES` | `1440` | Wie alt das zwischengespeicherte yt-dlp werden darf, bevor neu geladen wird |
 | `TZ` | `Europe/Berlin` | Beeinflusst Scheduler und Log-Zeitstempel |
 
-`DOWNLOAD_ROOT` wird **von der Umgebung verwaltet**: Was der Container vorgibt, gewinnt bei
-jedem Start gegen den gespeicherten Wert, und das Feld ist in der Oberfläche schreibgeschützt.
-Das ist beabsichtigt — im Container konfiguriert man den Pfad über den Volume-Mount, nicht
-über ein Formularfeld. Alles Übrige wird in der Oberfläche eingestellt und in der Datenbank
-gespeichert.
+`DOWNLOAD_ROOT` liefert nur den Startwert bei frischer Installation; danach gehört
+die Einstellung der Oberfläche. Ein Pfad, der nicht angelegt oder beschrieben werden
+kann, wird beim Speichern mit einer konkreten Fehlermeldung abgelehnt statt still
+ignoriert.
+
+### yt-dlp aktuell halten
+
+Die Sender ändern ihre Player regelmäßig, und ein yt-dlp von vor Monaten scheitert
+irgendwann an einzelnen davon. Das Image bringt eine feste Version mit, damit Builds
+reproduzierbar bleiben, und der Container holt beim Start die aktuelle Fassung in den
+Config-Ordner. Schlägt das fehl — kein Internet, GitHub nicht erreichbar — läuft er mit
+der mitgelieferten Version weiter und schreibt ins Protokoll, welche das ist. Mit
+`YTDLP_AUTO_UPDATE=0` bleibt es dauerhaft bei der gepinnten Version.
 
 ### Benennung und Ordner
 
@@ -206,8 +216,10 @@ kann Treffer automatisch laden. Trefferhistorie und RSS-Feed je Regel.
 **Bibliotheks-Anbindung** — `.nfo`- und `.info.json`-Sidecars, Plex- und Jellyfin-Scans,
 Infuse-Deep-Links sowie ein Import für bereits vorhandene Dateien.
 
-**Diagnose** — `GET /api/system-check` prüft `yt-dlp`, `ffmpeg` und ob Config- und
-Download-Pfad aus dem Container heraus beschreibbar sind.
+**Diagnose** — **Einstellungen → System-Check** zeigt UID und GID, unter denen der
+Container läuft, fertig zum Einsetzen in `user:`, dazu für jeden gemounteten Ordner,
+ob er beschreibbar ist und wem er gehört. Scheitert ein Schreibzugriff, nennt die
+Meldung den Pfad und die beteiligten Konten statt einfach fehlzuschlagen.
 
 ![Einstellungen](docs/screenshots/settings.png)
 
@@ -230,9 +242,15 @@ uvicorn app.main:app --reload
 python -m unittest discover -s tests
 ```
 
-`yt-dlp` ist im Dockerfile auf eine Version festgelegt, damit Builds reproduzierbar sind.
-Da die Sender ihre Seiten ändern, funktioniert eine feste Version irgendwann nicht mehr für
-alle Quellen — sie wird mit jedem Release nachgezogen.
+`yt-dlp` ist im Dockerfile auf eine Version festgelegt, damit Builds reproduzierbar sind;
+der laufende Container aktualisiert es beim Start, sofern nicht abgeschaltet.
+
+## Mitmachen
+
+Fehlermeldungen und Pull Requests sind willkommen — [CONTRIBUTING.md](CONTRIBUTING.md)
+beschreibt, wie man es lokal startet und was die Tests erwarten. Fragen, die keine
+Fehler sind, gehören in die
+[Discussions](https://github.com/TheChristoph03/mediathek-nas/discussions).
 
 ## Rahmen und Grenzen
 

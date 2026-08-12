@@ -42,7 +42,7 @@ class SystemCheckService:
             self._check(
                 "scheduler",
                 bool(settings["scheduler_enabled"]),
-                "Abos werden im Hintergrund ausgefuehrt.",
+                "Abos werden im Hintergrund ausgeführt.",
             ),
             self._check(
                 "metadata_sidecars",
@@ -67,12 +67,12 @@ class SystemCheckService:
                 {
                     "key": "media_visible",
                     "status": "manual",
-                    "label": "Plex, Jellyfin oder Infuse muessen denselben Medienordner sehen.",
+                    "label": "Plex, Jellyfin oder Infuse müssen denselben Medienordner sehen.",
                 },
                 {
                     "key": "backup",
                     "status": "manual",
-                    "label": "Der Konfigurationsordner enthaelt die Datenbank \u2014 in die Datensicherung aufnehmen.",
+                    "label": "Der Konfigurationsordner enthält die Datenbank, bitte in die Datensicherung aufnehmen.",
                 },
             ],
         }
@@ -82,9 +82,9 @@ class SystemCheckService:
         group = self._group_name(gid)
         running_as_root = uid == 0
         label = (
-            f"Laeuft als UID {uid} ({name}), GID {gid} ({group})."
+            f"Läuft als UID {uid} ({name}), GID {gid} ({group})."
             if not running_as_root
-            else f"Laeuft als root (UID 0). Downloads gehoeren dann root. "
+            else f"Läuft als root (UID 0). Downloads gehören dann root. "
             f"Setze user: \"<UID>:<GID>\" in der Compose-Datei."
         )
         return {"key": "identity", "status": "warning" if running_as_root else "ok", "label": label}
@@ -99,7 +99,7 @@ class SystemCheckService:
                 "status": "error",
                 "label": (
                     f"{title} {path} existiert nicht. Im Container sind nur gemountete "
-                    f"Pfade nutzbar \u2014 pruefe die volumes in der Compose-Datei."
+                    f"Pfade nutzbar. Prüfe die volumes in der Compose-Datei."
                 ),
             }
 
@@ -113,14 +113,14 @@ class SystemCheckService:
                 f'Setze user: "{owner_uid}:{owner_gid}" in der Compose-Datei '
                 f"und starte den Container neu."
                 if owner_uid is not None
-                else "Pruefe die Rechte des Ordners auf dem Host."
+                else "Prüfe die Rechte des Ordners auf dem Host."
             )
             return {
                 "key": key,
                 "status": "error",
                 "label": (
-                    f"{title} {path} ist nicht beschreibbar. Der Ordner gehoert "
-                    f"{owner_uid}:{owner_gid}, der Container laeuft als {uid}:{gid}. {hint}"
+                    f"{title} {path} ist nicht beschreibbar. Der Ordner gehört "
+                    f"{owner_uid}:{owner_gid}, der Container läuft als {uid}:{gid}. {hint}"
                 ),
             }
         except OSError as exc:
@@ -135,7 +135,7 @@ class SystemCheckService:
         if owner_uid is not None and owner_uid != uid and uid != 0:
             # Writable but foreign-owned usually means a world-writable folder.
             # It works today and breaks the moment someone tightens permissions.
-            suffix = f" Hinweis: gehoert {owner_uid}:{owner_gid}, geschrieben wird als {uid}:{gid}."
+            suffix = f" Hinweis: gehört {owner_uid}:{owner_gid}, geschrieben wird als {uid}:{gid}."
         return {"key": key, "status": "ok", "label": f"{title} {path} ist beschreibbar.{suffix}"}
 
     def _owner(self, path: Path) -> tuple[int | None, int | None]:
