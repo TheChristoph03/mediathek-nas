@@ -186,11 +186,16 @@ falls back to the pinned binary and logs which one it is using. Set
 
 Two templates control the layout, both editable in the UI:
 
-- **Subfolder** — default `{channel}/{topic}`, giving `zdf-tivi/logo/…`
+- **Subfolder** — default `{channel}/{show}`, giving `zdf-tivi/logo/…`
 - **Filename** — default `{date}_{channel}_{title}`
 
-Placeholders: `{date}`, `{year}`, `{channel}`, `{topic}`, `{title}`, `{quality}`.
+Placeholders: `{date}`, `{year}`, `{channel}`, `{show}`, `{topic}`, `{title}`, `{quality}`.
 Values are slugified and truncated to 80 characters.
+
+`{show}` is `{topic}` with a fallback. Broadcasters file one-off films under a
+bucket topic like "Filme", which would drop every unrelated film into the same
+folder; for those `{show}` uses the title instead. A real series keeps its topic,
+so all episodes stay together. Use `{topic}` directly if you want the raw value.
 
 ## Features
 

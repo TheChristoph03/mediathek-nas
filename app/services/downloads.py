@@ -460,18 +460,35 @@ class DownloadManager:
         return "/".join(rendered_parts)
 
     def _render_template(self, template: str, payload: dict[str, Any]) -> str:
+        topic = payload.get("topic") or ""
+        title = payload.get("title") or "download"
         data = {
             "date": payload.get("air_date") or datetime.now(UTC).date().isoformat(),
             "year": (payload.get("air_date") or datetime.now(UTC).date().isoformat())[:4],
             "channel": payload.get("channel") or "sender",
-            "topic": payload.get("topic") or "mediathek",
-            "title": payload.get("title") or "download",
+            "topic": topic or "mediathek",
+            "title": title,
             "quality": payload.get("quality") or "best",
+            "show": self._show_name(topic, title),
         }
         rendered = template
         for key, value in data.items():
             rendered = rendered.replace(f"{{{key}}}", self._slugify(str(value)))
         return re.sub(r"[-_]{2,}", "_", rendered.replace("/", "_")).strip("._-")
+
+    # Broadcasters file one-off films under a bucket topic like "Filme", which
+    # would put every unrelated film in the same folder. For those, the title is
+    # the better folder name; for a real series, the topic is.
+    GENERIC_TOPICS = {
+        "filme", "film", "spielfilm", "spielfilme", "fernsehfilm", "kinofilm",
+        "movies", "movie", "dokumentation", "dokumentationen", "doku", "dokus",
+        "reportage", "reportagen", "serien", "serie", "mediathek",
+    }
+
+    def _show_name(self, topic: str, title: str) -> str:
+        if topic and self._slugify(topic) not in self.GENERIC_TOPICS:
+            return topic
+        return title
 
     def _write_metadata_sidecars(self, download: dict[str, Any] | None) -> None:
         if not download or not download.get("final_path"):

@@ -192,11 +192,16 @@ der mitgelieferten Version weiter und schreibt ins Protokoll, welche das ist. Mi
 
 Zwei Vorlagen bestimmen die Struktur, beide in der Oberfläche änderbar:
 
-- **Unterordner** — Standard `{channel}/{topic}`, ergibt `zdf-tivi/logo/…`
+- **Unterordner** — Standard `{channel}/{show}`, ergibt `zdf-tivi/logo/…`
 - **Dateiname** — Standard `{date}_{channel}_{title}`
 
-Platzhalter: `{date}`, `{year}`, `{channel}`, `{topic}`, `{title}`, `{quality}`.
+Platzhalter: `{date}`, `{year}`, `{channel}`, `{show}`, `{topic}`, `{title}`, `{quality}`.
 Werte werden bereinigt und auf 80 Zeichen gekürzt.
+
+`{show}` ist `{topic}` mit Rückfallebene. Einzelne Filme laufen bei den Sendern unter
+einem Sammelthema wie „Filme", wodurch alle Filme im selben Ordner landen würden; dort
+nimmt `{show}` stattdessen den Titel. Eine echte Serie behält ihr Thema, sodass alle
+Folgen zusammenbleiben. Wer den Rohwert will, nutzt weiterhin `{topic}`.
 
 ## Funktionen
 

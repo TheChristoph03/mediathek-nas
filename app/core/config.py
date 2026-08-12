@@ -32,7 +32,7 @@ DEFAULT_APP_SETTINGS: dict[str, str] = {
     "skip_duplicates": "1",
     "scheduler_enabled": "1",
     "filename_template": "{date}_{channel}_{title}",
-    "subfolder_template": "{channel}/{topic}",
+    "subfolder_template": "{channel}/{show}",
     "create_nfo_sidecar": "1",
     "create_json_sidecar": "1",
     "rule_run_limit": "15",
