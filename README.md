@@ -1,321 +1,180 @@
 # Mediathek NAS
 
-Mediathek NAS ist eine Synology-taugliche Web-App zum Suchen, Vorschauen, Herunterladen und Organisieren von Inhalten aus oeffentlich erreichbaren Mediatheken auf Basis von MediathekViewWeb-Daten. Das Projekt ist fuer Docker und Synology Container Manager vorbereitet und nutzt FastAPI, SQLite, `yt-dlp` und `ffmpeg`.
+A self-hosted web app that searches the German public broadcasters' mediatheks and
+downloads shows straight into your NAS media library — named, foldered, and tagged
+so Plex, Jellyfin and Infuse pick them up without further work.
 
-## Status heute
+Built for Synology DSM and Container Manager. FastAPI + SQLite + `yt-dlp` + `ffmpeg`,
+one container, no Java, no desktop client.
 
-Stand: **Mittwoch, 12. August 2026**
+> **Search data comes from [MediathekViewWeb](https://mediathekviewweb.de), part of the
+> [MediathekView](https://github.com/mediathekview) project.** All the hard work of
+> aggregating and indexing the broadcasters' catalogues is theirs. This project is not
+> affiliated with them — it is a NAS-shaped front end built on top of the public API
+> they generously provide. If you use this, go star their repositories.
 
-Was bereits laeuft:
+## Why this exists
 
-- Suche ueber MediathekViewWeb-Daten
-- Filter fuer Sender, Thema, Datum, Laufzeit und Qualitaet
-- Detailansicht mit Vorschau- und Streaming-Link
-- Einzel-Download mit Queue, Fortschritt, Retry und Cancel
-- Mehrere gleichzeitige Downloads
-- Regeln und Serien-Abos mit Intervallen
-- Hintergrund-Scheduler fuer faellige Regeln
-- Konfigurierbare Dateinamen und Unterordner per Platzhalter
-- `.nfo` und `.info.json` Sidecars fuer Plex/Jellyfin-Vorbereitung
-- Plex- und Jellyfin-Refresh per API nach fertigen Downloads
-- Infuse-Deep-Links fuer Apple-Geraete
-- Import vorhandener Mediendateien und einfacher Listen
-- RSS-Feeds fuer Suchanfragen und Regeln
-- Globale Dublettenpruefung ueber Downloads und Importe
-- Responsive, kompaktere Weboberflaeche fuer Desktop, iPhone und iPad
-- Preflight- und System-Check fuer Container, Werkzeuge, Pfade und Synology-Voraussetzungen
+MediathekView is excellent, and if you want a desktop application you should use it
+instead. This project solves a different problem: **the show should already be on the
+NAS by the time you sit down on the sofa.**
 
-Was noch bewusst fehlt:
+- Runs headless, 24/7, in a container — no desktop app to open
+- Rules with intervals: define a series once, new episodes download themselves
+- Writes directly into your existing media folder with `.nfo` and `.info.json` sidecars
+- Triggers a Plex or Jellyfin library refresh when a download finishes
+- Generates Infuse deep links for Apple TV, iPhone and iPad
+- Responsive UI, so you can queue something from your phone
 
-- Kein DRM-Bypass
-- Keine Verarbeitung zugangsbeschraenkter Quellen
-- Noch keine Mehrbenutzerverwaltung
-- Noch keine vollautomatische Server-Erkennung fuer fremde Plex- oder Jellyfin-Instanzen
-- Noch kein nativer Import des originalen MediathekView-Datenformats mit garantierter 1:1-Abbildung
+Roughly: MediathekView is the desktop client, this is the always-on library filler.
 
-## Projektstruktur
+## Quick start (prebuilt image)
 
-```text
-.
-├── app
-│   ├── api
-│   ├── core
-│   ├── db
-│   ├── models
-│   ├── services
-│   ├── static
-│   └── templates
-├── Dockerfile
-├── LICENSE
-├── README.en.md
-├── README.md
-├── docker-compose.yml
-├── docker-compose.synology.yml
-├── outputs
-└── tests
+No build required. Create a folder on your NAS, put this `docker-compose.yml` in it,
+adjust the three marked values, then point Container Manager → **Project** → **Create**
+at that folder. Skip the "Web Portal" step in the wizard.
+
+```yaml
+services:
+  mediathek-nas:
+    image: ghcr.io/thechristoph03/mediathek-nas:latest
+    container_name: mediathek-nas
+
+    # CHANGE ME: the UID:GID that should own downloaded files.
+    # Find yours with: stat -c '%u:%g' /volume1/video/YourMediaFolder
+    user: "1026:100"
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      APP_DATA_DIR: /config
+      DOWNLOAD_ROOT: /media/mediathek
+      HOME: /config
+      TZ: Europe/Berlin
+
+    volumes:
+      - type: bind
+        source: /volume1/docker/mediathek-nas/config   # CHANGE ME
+        target: /config
+      - type: bind
+        source: /volume1/video/Movies/Mediathek        # CHANGE ME
+        target: /media/mediathek
+
+    restart: unless-stopped
 ```
 
-## Wo liegen die Dateien lokal?
+Then open `http://<nas-ip>:8000`.
 
-Projektordner:
+A ready-made copy of this file ships as [`docker-compose.ghcr.yml`](docker-compose.ghcr.yml).
 
-`/Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2`
+### The `user:` line is not optional
 
-Wichtige Unterordner:
+Without it the container runs as root and every downloaded file ends up root-owned,
+which Plex, Jellyfin and File Station all handle badly. Set it to the UID/GID that owns
+your media folder.
 
-- `app/` fuer Backend, API und Weboberflaeche
-- `data/` fuer SQLite und Laufzeitdaten im lokalen Test
-- `downloads/` fuer lokale Testdownloads
-- `outputs/` fuer nutzernahe Anleitungen
-- `tests/` fuer Grundtests
+### Both bind mounts must exist and be writable
 
-## Lokal starten
+The config mount holds the SQLite database. If the path does not exist, the container
+will refuse to start with a `bind source path does not exist` error.
 
-Empfohlen ist Python 3.12.
+## Configuration
 
-```bash
-cd /Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2
-python3.12 -m venv .venv312
-source .venv312/bin/activate
-pip install -r requirements.txt
-uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload
-```
+| Variable | Default | Meaning |
+| --- | --- | --- |
+| `DOWNLOAD_ROOT` | `/downloads` | Where downloads are written, inside the container |
+| `APP_DATA_DIR` | `/config` | Holds `mediathek_nas.db` |
+| `HOME` | `/config` | Needed so `yt-dlp` has a writable cache directory |
+| `TZ` | `Europe/Berlin` | Affects scheduler timing and log timestamps |
 
-Danach im Browser:
+`DOWNLOAD_ROOT` is **environment-managed**: whatever the container environment says wins
+over the stored value on every start, and the field is read-only in the UI. This is
+deliberate — in a container you configure the path with a volume mount, not by typing it
+into a form. Everything else is configured in the UI and persisted in the database.
 
-`http://127.0.0.1:8000`
+### Naming and folders
 
-## Schnelltest lokal
+Two templates control the layout, both editable in the UI:
 
-1. Suche nach `Terra X`
-2. Oeffne `Details`
-3. Lege einen Download in die Queue
-4. Aktiviere testweise `.nfo` und `.info.json`
-5. Lege eine Regel an und fuehre `Faellige Regeln jetzt ausfuehren` aus
-6. Pruefe den Bereich `System-Check`
+- **Subfolder** — default `{channel}/{topic}`, giving `zdf-tivi/logo/…`
+- **Filename** — default `{date}_{channel}_{title}`
 
-## Teststatus
+Placeholders: `{date}`, `{year}`, `{channel}`, `{topic}`, `{title}`, `{quality}`.
+Values are slugified and truncated to 80 characters.
 
-Am 12. August 2026 erfolgreich geprueft:
+## Features
 
-- `python -m compileall app tests`
-- `python -m unittest discover -s tests`
-- App-Start mit `uvicorn`
-- `GET /api/system-check`
-- `GET /api/media-servers/status`
-- `GET /api/rss/search?query=Terra X`
+**Search** — full MediathekViewWeb query support with filters for channel, topic, date,
+runtime and quality; preview and streaming links per result.
 
-## Installation auf Synology
+**Downloads** — queue with live progress, parallel workers, retry and cancel,
+global duplicate detection across downloads and previously imported files.
 
-Zielsystem im aktuellen Setup:
+**Rules** — saved searches with an interval; a background scheduler runs them and can
+download matches automatically. Per-rule match history and RSS feed.
 
-- Synology `DS1520+`
-- DSM `7.3.2-86009 Update 4`
-- Container Manager installiert
-- Medienordner: `/volume1/video/Movies/Fernseh Mediathek`
+**Library integration** — `.nfo` and `.info.json` sidecars, Plex and Jellyfin refresh
+hooks, Infuse deep links, and an importer for media you already have on disk.
 
-Die komplette SSH-Schrittfolge liegt hier:
+**Diagnostics** — `GET /api/system-check` verifies `yt-dlp`, `ffmpeg`, and that the
+config and download paths are writable from inside the container.
 
-[synology-ssh-setup.md](/Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2/outputs/synology-ssh-setup.md:1)
-
-Die Compose-Datei fuer die Synology liegt hier:
-
-[docker-compose.synology.yml](/Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2/docker-compose.synology.yml:1)
-
-Kurzfassung:
+## Building from source
 
 ```bash
-ssh <dein-synology-user>@<deine-synology-ip>
-mkdir -p /volume1/docker/mediathek-nas/config
-mkdir -p /volume1/docker/mediathek-nas/app
-```
-
-Dann vom Mac auf die Synology:
-
-```bash
-rsync -av \
-  /Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2/ \
-  <dein-synology-user>@<deine-synology-ip>:/volume1/docker/mediathek-nas/app/
-```
-
-Dann auf der Synology:
-
-```bash
-cd /volume1/docker/mediathek-nas/app
+git clone https://github.com/TheChristoph03/mediathek-nas.git
+cd mediathek-nas
 docker compose -f docker-compose.synology.yml up -d --build
-docker logs mediathek-nas --tail 100
 ```
 
-Danach im Browser:
+Be warned: the `ffmpeg` apt layer takes roughly 25–40 minutes on NAS hardware. Using the
+prebuilt image is strongly preferred unless you are changing the Dockerfile.
 
-```text
-http://<deine-synology-ip>:8000
+Running locally without Docker:
+
+```bash
+pip install -r requirements.txt
+uvicorn app.main:app --reload
+python -m unittest discover -s tests
 ```
 
-## Synology-Voraussetzungen
+`yt-dlp` is pinned in the Dockerfile for reproducible builds. Because broadcasters change
+their sites, a pinned version will eventually stop working for some sources — the pin gets
+bumped with each release.
 
-Automatisch in der App pruefbar ueber `System-Check`:
+## Scope and limits
 
-- Python-Laufzeit aktiv
-- `yt-dlp` vorhanden
-- `ffmpeg` vorhanden
-- Konfigurationsordner beschreibbar
-- Download-Zielordner beschreibbar
-- Scheduler-Einstellung geladen
-- Sidecar-Einstellungen geladen
+This project only handles **publicly accessible content from the broadcasters' own
+mediatheks**, as indexed by MediathekViewWeb. It does not circumvent DRM, does not bypass
+access restrictions, and has no mechanism to do so. German public broadcaster content is
+funded by licence fee and published for public retrieval; downloading it for private use
+is what this tool does. Redistribution is your responsibility, not the tool's.
 
-Manuell auf dem NAS zu pruefen:
+Also not present: multi-user accounts, authentication of any kind (do not expose this to
+the internet), automatic discovery of Plex or Jellyfin servers, and import of native
+MediathekView data formats.
 
-- `Container Manager` ist installiert
-- Der gemeinsame Medienordner ist vorhanden
-- Der Container darf auf Konfigurations- und Medienordner schreiben
-- Plex, Jellyfin oder Infuse koennen denselben Medienordner lesen
+## Roadmap
 
-Wichtig: Host-seitige DSM-Pakete und Berechtigungen kann die App im Container nicht vollautomatisch erkennen. Deshalb zeigt die Weboberflaeche diese Punkte bewusst als manuelle Synology-Checkliste an.
+- `linux/arm64` images for ARM-based Synology models
+- UI and UX rework — denser layout, better mobile ergonomics
+- English UI
+- Folder picker in settings
+- Screenshots
 
-## Neue Funktionen im Detail
+## Credits
 
-### Medienserver
+- [MediathekView](https://github.com/mediathekview) and
+  [MediathekViewWeb](https://github.com/mediathekview/mediathekviewweb) — the search
+  index this app runs on
+- [yt-dlp](https://github.com/yt-dlp/yt-dlp) — the download engine
+- [FastAPI](https://fastapi.tiangolo.com) and [Uvicorn](https://www.uvicorn.org)
 
-- Plex kann per Basis-URL, Token und Section-ID angebunden werden
-- Jellyfin kann per Basis-URL und API-Key angebunden werden
-- fuer beide Server kann nach fertigen Downloads ein Scan bzw. Refresh angestossen werden
-- Infuse wird ueber offizielle Deep-Links fuer `play` und `save` auf iPhone, iPad und Mac vorbereitet
+## License
 
-### Dubletten
+MIT. See [LICENSE](LICENSE).
 
-- neue Downloads werden global gegen vorhandene Downloads und importierte Eintraege geprueft
-- bei aktiver Dublettenvermeidung wird kein zweiter Download angelegt
-- erkannte Bestandsgruppen werden im Bereich `Import & Dubletten` angezeigt
+---
 
-### Import
-
-- vorhandene Video-Dateien koennen aus einem Ordnerbestand eingelesen werden
-- einfache `.json`- und `.txt`-Listen koennen als Download-Warteschlange importiert werden
-- importierte Dateien erscheinen als abgeschlossene Eintraege in Queue und Historie
-
-### RSS
-
-- aktuelle Suche als RSS: `GET /api/rss/search`
-- gespeicherte Regel als RSS: `GET /api/rss/rules/{id}`
-
-## Einstellungen fuer Medienserver
-
-Sinnvolle Defaults:
-
-- Download-Root: `/media/fernseh-mediathek`
-- Dateiname: `{date}_{channel}_{title}`
-- Unterordner: `{channel}/{topic}`
-- Gleichzeitige Downloads: `2`
-- Auto-Retrys: `1`
-- `.nfo` aktivieren
-- `.info.json` aktivieren
-
-Verfuegbare Platzhalter:
-
-- `{date}`
-- `{year}`
-- `{channel}`
-- `{topic}`
-- `{title}`
-- `{quality}`
-
-## API-Ueberblick
-
-- `POST /api/search`
-- `GET /api/downloads`
-- `POST /api/downloads`
-- `POST /api/downloads/{id}/retry`
-- `POST /api/downloads/{id}/cancel`
-- `GET /api/rules`
-- `POST /api/rules`
-- `GET /api/rules/{id}/matches`
-- `POST /api/rules/{id}/run`
-- `POST /api/rules/run-all`
-- `POST /api/rules/run-due`
-- `GET /api/settings`
-- `PUT /api/settings`
-- `GET /api/system-check`
-- `GET /api/media-servers/status`
-- `POST /api/media-servers/scan`
-- `GET /api/duplicates`
-- `GET /api/imports`
-- `POST /api/imports/filesystem`
-- `POST /api/imports/list`
-- `GET /api/rss/search`
-- `GET /api/rss/rules/{id}`
-
-## Oeffentliche Veroeffentlichung
-
-Ja, das Projekt laesst sich sinnvoll oeffentlich machen:
-
-- als GitHub-Repository
-- spaeter als Container-Image
-- mit deutscher und englischer Dokumentation
-- mit Post in der Synology Community
-
-Bereits vorbereitet:
-
-- MIT-Lizenz
-- deutsche README
-- englische README
-- Synology-spezifische Compose-Datei
-- SSH-Installationsanleitung
-- klare Abgrenzung gegen DRM- oder Zugangsumgehung
-
-Vor einem wirklichen Public Release noch sinnvoll:
-
-1. Repo-Namen finalisieren
-2. Screenshots fuer Desktop und Mobil aufnehmen
-3. Beispiel-Suchbegriffe und Demo-Daten dokumentieren
-4. GitHub Actions fuer Tests und Build ergaenzen
-5. Optional Release-Container auf GitHub Container Registry veroeffentlichen
-6. UI-Texte komplett zweisprachig machen
-
-## Englisch
-
-Eine erste englische Projektfassung liegt hier:
-
-[README.en.md](/Users/christophdudy/Documents/Codex/2026-08-12/referenced-chatgpt-conversation-this-is-an-2/README.en.md:1)
-
-Die Weboberflaeche selbst ist aktuell noch ueberwiegend deutschsprachig und waere fuer eine internationale Veroeffentlichung der naechste naheliegende Schritt.
-
-## Vergleich zu MediathekView
-
-Nach den aktuell verfuegbaren offiziellen Quellen bieten MediathekView und MediathekViewWeb unter anderem Suche, Filter, Downloads, Abspielen, Abos beziehungsweise automatische Downloads und bei MediathekViewWeb auch RSS-Feeds. Quellen: [MediathekView GitHub](https://github.com/mediathekview), [MediathekViewWeb GitHub](https://github.com/mediathekview/mediathekviewweb), [MediathekView auf Flathub](https://flathub.org/en/apps/de.mediathekview.MediathekView).
-
-Im Vergleich fehlen hier aktuell vor allem:
-
-- ausgereiftere Suchsyntax und Feinfilter
-- tieferes Dubletten- und Historienmanagement
-- reifere Importfunktionen direkt fuer das native MediathekView-Datenformat
-- komfortableres direktes Abspielen verschiedener Streamtypen
-- Desktop-spezifische Workflows rund um externe Player
-
-Staerken dieses Projekts:
-
-- direkt fuer Synology DSM und Container Manager gedacht
-- gemeinsamer Medienordner fuer Plex, Jellyfin und Infuse
-- keine Desktop-Java-App notwendig
-- konfigurierbare Ordner- und Dateibenennung
-- vorbereitete Medienserver-Sidecars
-- integrierte RSS-Feeds fuer Regeln und Suchen
-- Import vorhandener Dateien und Listen
-- eingebauter Deployment-Check fuer Synology-Nutzer
-
-## Sinnvolle naechste Ausbaustufen
-
-- zweisprachige UI
-- Release-Image fuer Docker Hub oder GHCR
-- nativer MediathekView-Formatimport
-- bessere Metadaten-Zuordnung fuer Serien und Dokus
-- Webhooks fuer Regeln
-- feinere Regeltypen wie Sender-Mapping oder Themen-Sammlungen
-
-## Quellen
-
-- [MediathekView GitHub](https://github.com/mediathekview)
-- [MediathekViewWeb GitHub](https://github.com/mediathekview/mediathekviewweb)
-- [MediathekView auf Flathub](https://flathub.org/en/apps/de.mediathekview.MediathekView)
-- [Synology Container Manager Package](https://www.synology.com/en-us/dsm/packages/ContainerManager)
-- [Synology Container Manager Release Notes](https://www.synology.com/releaseNote/ContainerManager)
+🇩🇪 [Deutsche Fassung](README.de.md)
