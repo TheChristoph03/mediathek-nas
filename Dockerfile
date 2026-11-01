@@ -1,4 +1,4 @@
-FROM python:3.12-slim
+FROM python:3.15-slim
 
 # Pin yt-dlp for reproducible builds. "latest" means two people building on two
 # different days get different binaries -- fine for local use, not for a published image.
